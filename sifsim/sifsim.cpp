@@ -3,18 +3,23 @@
 
 #include "rapidjson/document.h"
 #include "rapidjson/filereadstream.h"
+#include "pcg/pcg_random.hpp"
+#include <random>
 #include <fstream>
 #include <vector>
 #include <limits>
 #include <array>
 #include <cmath>
 #include <algorithm>
+#include <numeric>
 #include <iostream>
+#include <iomanip>
 using namespace std;
 using namespace rapidjson;
-int Test() {
+int Test(const char * filename) {
+	pcg32 rng(pcg_extras::seed_seq_from<random_device>{});
 	vector<char> json;
-	ifstream fin("Live_s0812.json", ios_base::binary);
+	ifstream fin(ToNative(filename), ios_base::binary);
 	fin.seekg(0, ios_base::end);
 	auto len = fin.tellg();
 	if (len < 0) {
@@ -33,26 +38,35 @@ int Test() {
 	if (!doc.IsArray()) {
 		return 1;
 	}
-	struct Combo {
-		int time;
+	struct Note {
 		int type;
 		int position;
+		double showTime;
+		double comboTime;
 	};
-	vector<Combo> combos(doc.Size());
+	vector<Note> notes(doc.Size());
+	normal_distribution<> err(0, 0.015);
 	for (unsigned i = 0; i < doc.Size(); i++) {
-		combos[i].position = doc[i]["position"].GetInt();
-		combos[i].type = doc[i]["effect"].GetInt();
-		double t = doc[i]["timing_sec"].GetDouble();
-		if (combos[i].type == 3 || combos[i].type == 13) {
+		auto & note = notes[i];
+		note.position = doc[i]["position"].GetInt();
+		note.type = doc[i]["effect"].GetInt();
+		double t = doc[i]["timing_sec"].GetDouble() - 0.1;
+		note.showTime = t - 0.7;
+		if (note.type == 3 || note.type == 13) {
 			t += doc[i]["effect_value"].GetDouble();
 		}
-		combos[i].time = lrint(t * 1e3);
+		note.comboTime = t;
+		double delta = err(rng);
+		if (fabs(delta) > 0.08) {
+			delta = copysign(0.08, delta);
+		}
+		note.comboTime += delta;
 	}
-	sort(combos.begin(), combos.end(), [](auto && a, auto && b) {
-		return a.time < b.time;
+	sort(notes.begin(), notes.end(), [](auto && a, auto && b) {
+		return a.comboTime < b.comboTime;
 	});
-	constexpr array<pair<size_t, double>, 7> ComboMul = { {
-		{ 50, 1. },
+	constexpr array<pair<int, double>, 7> ComboMul = { {
+		{ 50, 1 },
 		{ 100, 1.1 },
 		{ 200, 1.15 },
 		{ 400, 1.2 },
@@ -62,30 +76,32 @@ int Test() {
 	} };
 	auto comboIndex = ComboMul.cbegin();
 	array<double, 9> weight = { 0. };
-	for (size_t i = 0; i < combos.size(); i++) {
-		if (i > comboIndex->first) {
+	for (size_t i = 0; i < notes.size(); i++) {
+		const auto & note = notes[i];
+		if (i >= comboIndex->first) {
 			++comboIndex;
 		}
 		double w = comboIndex->second;
-		if (combos[i].type >= 4 && combos[i].type <= 13) {
+		if (note.type >= 11 && note.type <= 13) {
 			w *= 0.5;
 		}
-		if (combos[i].type == 3 || combos[i].type == 13) {
+		if (note.type == 3 || note.type == 13) {
 			w *= 1.25;
 		}
-		weight[9 - combos[i].position] += w;
+		weight[9 - note.position] += w;
 	}
 	for (size_t i = 0; i < 9; i++) {
-		cout << weight[i] << '\t';
+		cout << fixed << setprecision(3) << setw(8) << weight[i];
 	}
 	cout << '\n';
+	cout << setprecision(4) << accumulate(weight.begin(), weight.end(), 0.) << '\n';
 
 	return 0;
 }
 
 
 int Utf8Main(int argc, char * argv[]) {
-	return Test();
+	return Test(argc >= 2 ? argv[1] : "Live_s0812.json");
 	return 0;
 }
 
