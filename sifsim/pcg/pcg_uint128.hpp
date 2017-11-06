@@ -65,7 +65,8 @@
         #define PCG_LITTLE_ENDIAN 1
     #elif __BIG_ENDIAN__ || _BIG_ENDIAN
         #define PCG_LITTLE_ENDIAN 0
-    #elif __x86_64 || __x86_64__ || __i386 || __i386__
+    #elif __x86_64 || __x86_64__ || __i386 || __i386__ \
+          || _M_IX86 || _M_X64
         #define PCG_LITTLE_ENDIAN 1
     #elif __powerpc__ || __POWERPC__ || __ppc__ || __PPC__ \
           || __m68k__ || __mc68000__
@@ -158,7 +159,14 @@ inline bitcount_t trailingzeros(uint32_t v)
       31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
     };
 
+#if _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4146)
+#endif
     return multiplyDeBruijnBitPos[((uint32_t)((v & -v) * 0x077CB531U)) >> 27];
+#if _MSC_VER
+#pragma warning(pop)
+#endif
 }
 
 inline bitcount_t flog2(uint64_t v)
