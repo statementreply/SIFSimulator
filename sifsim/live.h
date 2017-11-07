@@ -1,13 +1,30 @@
 #pragma once
 
 #include <vector>
+#include <array>
 #include <tuple>
+#include <cstdint>
+#include <limits>
 
 
 class Live {
 public:
 	bool prepare(const char * json);
-	int simulate();
+	int simulate(int id);
+
+public:
+	static constexpr double PERFECT_WINDOW = 0.032;
+	static constexpr double GREAT_WINDOW = 0.080;
+	static constexpr double GOOD_WINDOW = 0.128;
+	static constexpr std::array<std::pair<size_t, double>, 7> COMBO_MUL = { {
+		{50, 1},
+		{100, 1.1},
+		{200, 1.15},
+		{400, 1.2},
+		{600, 1.25},
+		{800, 1.3},
+		{std::numeric_limits<size_t>::max(), 1.35},
+	} };
 
 private:
 	struct Note {
@@ -30,34 +47,24 @@ private:
 		bool isHold;
 		bool isSlide;
 		bool isBomb;
-		bool hitGreat;
-		bool releaseGreat;
+		bool gr;
+		bool grBegin;
 
 		void effect(int effect) {
-			isHold = effect == (int)Effect::Hold || effect == (int)Effect::Slide;
+			isHold = effect == (int)Effect::Hold || effect == (int)Effect::SlideHold;
 			isSlide = effect >= (int)Effect::Slide && effect <= (int)Effect::SlideHold;
 			isBomb = effect >= (int)Effect::Bomb1 && effect <= (int)Effect::Bomb9;
-		}
-	};
-
-	struct Event {
-		enum class Type {
-			Hit,
-			SkillOff,
-			ActiveSkillOn,
-			PassiveSkillOn,
-		};
-
-		double time;
-		Type type;
-		int id;
-
-		bool operator <(const Event & b) const {
-			return std::tie(time, type, id) < std::tie(b.time, b.type, b.id);
 		}
 	};
 
 private:
 	std::vector<Note> combos;
 	std::vector<double> notes;
+	double sigmaHit;
+	double sigmaHoldBegin;
+	double sigmaHoldEnd;
+	double sigmaSlide;
+	double gRateHoldBegin;
+	double gRateSlide;
+	double attr;
 };

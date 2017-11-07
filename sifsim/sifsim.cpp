@@ -65,7 +65,7 @@ int Test(const char * filename) {
 		if (fabs(delta) > 0.08) {
 			delta = copysign(0.08, delta);
 		}
-		note.comboTime += delta;
+		//note.comboTime += delta;
 	}
 	sort(notes.begin(), notes.end(), [](auto && a, auto && b) {
 		return a.comboTime < b.comboTime;
@@ -86,12 +86,15 @@ int Test(const char * filename) {
 		if (i >= comboIndex->first) {
 			++comboIndex;
 		}
-		double w = comboIndex->second;
+		double w = 1;
+		w *= 1.2425;
+		w *= 1.1;
+		w *= comboIndex->second;
 		if (note.type >= 11 && note.type <= 13) {
 			w *= 0.5;
 		}
 		if (note.type == 3 || note.type == 13) {
-			w *= 1.25;
+			w *= 1.2425;// 1.25;
 		}
 		weight[9 - note.position] += w;
 	}
@@ -106,6 +109,8 @@ int Test(const char * filename) {
 
 
 int Utf8Main(int argc, char * argv[]) {
+	//return Test(argc >= 2 ? argv[1] : R"(K:\Documents\LL\charts\json\Live_s0812.json)");
+
 	string json;
 	if (argc >= 2) {
 		json = ReadAllText(ifstream(ToNative(argv[1]), ios_base::binary));
@@ -113,7 +118,12 @@ int Utf8Main(int argc, char * argv[]) {
 		json = ReadAllText(cin);
 	}
 	Live live;
-	live.prepare(json.c_str());
+	if (!live.prepare(json.c_str())) {
+		return 1;
+	}
+	for (int i = 0; i < 20; i++) {
+		cout << live.simulate(i) << endl;
+	}
 	return 0;
 }
 
