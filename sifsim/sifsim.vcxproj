@@ -139,10 +139,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="live.cpp" />
     <ClCompile Include="sifsim.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="live.h" />
     <ClInclude Include="nativechar.h" />
+    <ClInclude Include="util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

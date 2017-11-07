@@ -1,4 +1,9 @@
 #include "nativechar.h"
+#include "live.h"
+#include "util.h"
+#include <string>
+#include <iostream>
+#include <fstream>
 
 
 #include "rapidjson/document.h"
@@ -101,7 +106,14 @@ int Test(const char * filename) {
 
 
 int Utf8Main(int argc, char * argv[]) {
-	return Test(argc >= 2 ? argv[1] : "Live_s0812.json");
+	string json;
+	if (argc >= 2) {
+		json = ReadAllText(ifstream(ToNative(argv[1]), ios_base::binary));
+	} else {
+		json = ReadAllText(cin);
+	}
+	Live live;
+	live.prepare(json.c_str());
 	return 0;
 }
 
