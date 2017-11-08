@@ -13,7 +13,7 @@ using namespace rapidjson;
 #endif
 
 #ifndef SIMULATE_HIT_ERROR
-#define SIMULATE_HIT_ERROR 0
+#define SIMULATE_HIT_ERROR 1
 #endif
 
 #if USE_FAST_RANDOM

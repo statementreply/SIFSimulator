@@ -80,11 +80,12 @@ namespace FastRandom {
 		result_type _eval(Generator & g, const param_type & param) const {
 			static_assert(g.min() == 0 && g.max() >= std::numeric_limits<uint32_t>::max(),
 				"UniformRandomBitGenerator for FastRandom shall generate at least 32 bits per call");
-			uint32_t u;
-			do {
-				u = static_cast<uint32_t>(g());
-			} while (u == 0);
-			return u <= _param._p32;
+			for (;;) {
+				uint32_t u = static_cast<uint32_t>(g());
+				if (u != 0) {
+					return u <= _param._p32;
+				}
+			};
 		}
 
 		param_type _param;
@@ -102,6 +103,7 @@ namespace FastRandom {
 			typedef normal_distribution<RealType> distribution_type;
 
 			explicit param_type(RealType mean = 0., RealType stddev = 1.) {
+				static double _initFlag = _initTables();
 				_mean = mean;
 				_stddev = stddev;
 			}
@@ -174,36 +176,83 @@ namespace FastRandom {
 	private:
 		template<class Generator>
 		result_type _eval(Generator & g, const param_type & param) const {
-			static_assert(g.min() == 0 && g.max >= std::numeric_limits<uint32_t>::max(),
+			static_assert(g.min() == 0 && g.max() >= std::numeric_limits<uint32_t>::max(),
 				"UniformRandomBitGenerator for FastRandom shall generate at least 32 bits per call");
-			return NAN;
+			for (;;) {
+				constexpr double Y_SCALE = 1. / (std::numeric_limits<uint32_t>::max() + 1.);
+				constexpr double X_SCALE = 2. / (std::numeric_limits<uint32_t>::max() + 1.);
+				uint32_t r = static_cast<uint32_t>(g());
+				uint32_t index = r & ZIGNOR_INDEX_MASK;
+				uint32_t uvalue = r & ZIGNOR_VALUE_MASK | ZIGNOR_VALUE_OFFSET;
+				int32_t value = reinterpret_cast<const int32_t &>(uvalue);
+				if (static_cast<uint32_t>(abs(value)) < ZIGNOR_THRES(index)) {
+					return value * ZIGNOR_SCALE(index);
+				}
+				if (index > 0) {
+					uint32_t r2 = static_cast<uint32_t>(g());
+					double x = value * ZIGNOR_SCALE(index);
+					double y = ZIGNOR_Y(index) + (ZIGNOR_Y(index + 1) - ZIGNOR_Y(index))
+						* ((r2 + 0.5) * Y_SCALE);
+					if (y < exp(-0.5 * x * x)) {
+						return x;
+					}
+				} else {
+					for (;;) {
+						constexpr static double REV_TAIL_X = 1. / ZIGNOR_TAIL_X;
+						uint32_t r2 = static_cast<uint32_t>(g());
+						uint32_t r3 = static_cast<uint32_t>(g());
+						int32_t ir3 = reinterpret_cast<const int32_t &>(r3);
+						double py = -log((r2 + 0.5) * Y_SCALE);
+						double dx = -log(fabs(ir3 + 0.5) * X_SCALE) * REV_TAIL_X;
+						if (py > 0.5 * dx * dx) {
+							return ir3 >= 0 ? dx + ZIGNOR_TAIL_X : -(dx + ZIGNOR_TAIL_X);
+						}
+					}
+				}
+			}
 		}
 
 		param_type _param;
 
 	private:
-		constexpr static int ZIGNOR_LOG2_N = 128;
-		constexpr static size_t ZIGNOR_N = size_t(1) << ZIGNOR_LOG2_N;
-		constexpr static double ZIGNOR_TAIL_X = 3.442619855899;
-		constexpr static double ZIGNOR_AREA = 9.91256303526217e-3;
-		static double ZIGNOR_SCALE[ZIGNOR_N];
-		static uint32_t ZIGNOR_THERS[ZIGNOR_N];
+		constexpr static int ZIGNOR_LOG2_N = 7;
+		constexpr static uint32_t ZIGNOR_N = UINT32_C(1) << ZIGNOR_LOG2_N;
+		constexpr static uint32_t ZIGNOR_INDEX_MASK = ZIGNOR_N - 1;
+		constexpr static uint32_t ZIGNOR_VALUE_MASK = ~ZIGNOR_INDEX_MASK;
+		constexpr static uint32_t ZIGNOR_VALUE_OFFSET = UINT32_C(1) << (ZIGNOR_LOG2_N - 1);
+		constexpr static double ZIGNOR_TAIL_X = 3.4426198558966520937;
+		constexpr static double ZIGNOR_PSEUDO_X = 3.71308624674036290314;
+		constexpr static double ZIGNOR_AREA = 0.00991256303533646107072;
 
-		static double _initFlag = _initTables();
-		static bool _initTables() {
-			constexpr double QUANT = UINT32_C(1) << (31 - ZIGNOR_LOG2_N);
-			double x = ZIGNOR_TAIL_X;
-			double y = std::exp(-0.5 * x * x);
-			ZIGNOR_SCALE[0] = ZIGNOR_AREA / y;
-			for (size_t i = 1; i < ZIGNOR_N; i++) {
+		static double & ZIGNOR_Y(size_t index) {
+			static double ZIGNOR_Y_DATA[ZIGNOR_N + 1];
+			return ZIGNOR_Y_DATA[index];
+		}
+		static double & ZIGNOR_SCALE(size_t index) {
+			static double ZIGNOR_SCALE_DATA[ZIGNOR_N];
+			return ZIGNOR_SCALE_DATA[index];
+		}
+		static uint32_t & ZIGNOR_THRES(size_t index) {
+			static uint32_t ZIGNOR_THRES_DATA[ZIGNOR_N];
+			return ZIGNOR_THRES_DATA[index];
+		}
+
+		static double _initTables() {
+			constexpr double QUANT = (std::numeric_limits<uint32_t>::max() + 1.) * 0.5;
+			constexpr double SCALE = 1. / QUANT;
+			double y = 0;
+			double x = ZIGNOR_PSEUDO_X;
+			ZIGNOR_Y(0) = 0;
+			for (size_t i = 0; i < ZIGNOR_N; i++) {
 				double oldx = x;
-				ZIGNOR_SCALE[i] = oldx;
 				y += ZIGNOR_AREA / oldx;
+				ZIGNOR_Y(i + 1) = y;
+				ZIGNOR_SCALE(i) = oldx * SCALE;
 				if (i + 1 < ZIGNOR_N) {
 					x = std::sqrt(-2. * std::log(y));
-					ZIGNOR_THERS[i] = (x / oldx * QUANT);
+					ZIGNOR_THRES(i) = static_cast<uint32_t>(std::lrint(x / oldx * QUANT));
 				} else {
-					ZIGNOR_THRES[i] = 0;
+					ZIGNOR_THRES(i) = 0;
 				}
 			}
 			return y;
