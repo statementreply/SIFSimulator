@@ -10,7 +10,7 @@
 class Live {
 public:
 	bool prepare(const char * json);
-	int simulate(int id);
+	int simulate(int id, uint64_t seed = UINT64_C(0xcafef00dd15ea5e5));
 
 public:
 	static constexpr double PERFECT_WINDOW = 0.032;
@@ -42,6 +42,7 @@ private:
 			SlideHold = 13,
 		};
 
+		double time;
 		double hitTime;
 		int position;
 		bool isHold;
@@ -58,13 +59,23 @@ private:
 	};
 
 private:
-	std::vector<Note> combos;
-	std::vector<double> notes;
+	// Settings
+	double hiSpeed;
+	double hitOffset;
 	double sigmaHit;
 	double sigmaHoldBegin;
 	double sigmaHoldEnd;
 	double sigmaSlide;
+	double gRateHit;
 	double gRateHoldBegin;
+	double gRateHoldEnd;
 	double gRateSlide;
+	double gRateSlideHoldEnd;
+
+	// Unit
 	double attr;
+
+	// Chart
+	std::vector<Note> combos;
+	std::vector<double> notes;
 };

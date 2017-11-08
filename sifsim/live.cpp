@@ -8,6 +8,21 @@
 using namespace std;
 using namespace rapidjson;
 
+#ifndef USE_FAST_RANDOM
+#define USE_FAST_RANDOM 1
+#endif
+
+#ifndef SIMULATE_HIT_ERROR
+#define SIMULATE_HIT_ERROR 0
+#endif
+
+#if USE_FAST_RANDOM
+#include "fastrandom.h"
+namespace Random = FastRandom;
+#else
+namespace Random = std;
+#endif
+
 constexpr double SQRT1_2 = 0.70710678118654752;
 
 
@@ -16,12 +31,17 @@ bool Live::prepare(const char * json) {
 	if (doc.Parse(json).HasParseError()) return false;
 
 	// Settings
+	hiSpeed = 0.7;
+	hitOffset = 0.;
 	sigmaHit = 0.015;
 	sigmaHoldBegin = 0.015;
 	sigmaHoldEnd = 0.018;
 	sigmaSlide = 0.030;
+	gRateHit = erfc(PERFECT_WINDOW / sigmaHit * SQRT1_2);
 	gRateHoldBegin = erfc(PERFECT_WINDOW / sigmaHoldBegin * SQRT1_2);
+	gRateHoldEnd = erfc(PERFECT_WINDOW / sigmaHoldEnd * SQRT1_2);
 	gRateSlide = erfc(GREAT_WINDOW / sigmaSlide * SQRT1_2);
+	gRateSlideHoldEnd = erfc(GREAT_WINDOW / sigmaHoldEnd * SQRT1_2);
 
 	// Unit
 	attr = 63918;
@@ -42,11 +62,12 @@ bool Live::prepare(const char * json) {
 		double t = doc[i]["timing_sec"].GetDouble();
 		// SIF built-in offset :<
 		t -= 0.1;
-		notes[i] = t - 0.7;
+		notes[i] = t - hiSpeed;
 		if (note.isHold) {
 			if (!doc[i]["effect_value"].IsDouble()) return false;
 			t += doc[i]["effect_value"].GetDouble();
 		}
+		note.time = t;
 		note.hitTime = t;
 	}
 
@@ -74,16 +95,18 @@ namespace {
 }
 
 
-int Live::simulate(int id) {
-	pcg32 rng;
+int Live::simulate(int id, uint64_t seed) {
+	pcg32 rng(seed);
 	rng.advance(static_cast<uint64_t>(id) << 32);
-	normal_distribution<> eHit(0, sigmaHit);
-	normal_distribution<> eHoldEnd(0, sigmaHoldEnd);
-	normal_distribution<> eSlide(0, sigmaSlide);
-	bernoulli_distribution gHoldBegin(gRateHoldBegin);
-	bernoulli_distribution gSlide(gRateSlide);
-	//bernoulli_distribution g(0.05);
-	for (auto & note : combos) {
+
+	// Hit accuracy
+#if SIMULATE_HIT_ERROR
+	Random::normal_distribution<> eHit(0, sigmaHit);
+	Random::normal_distribution<> eHoldEnd(0, sigmaHoldEnd);
+	Random::normal_distribution<> eSlide(0, sigmaSlide);
+	Random::bernoulli_distribution gHoldBegin(gRateHoldBegin);
+	Random::bernoulli_distribution gSlide(gRateSlide);
+	for (auto && note : combos) {
 		double e;
 		if (note.isHold) {
 			e = eHoldEnd(rng);
@@ -101,20 +124,46 @@ int Live::simulate(int id) {
 			note.grBegin = false;
 		}
 		if (note.isSlide) {
-			if (fabs(e) > GOOD_WINDOW) {
+			if (!(fabs(e) < GOOD_WINDOW)) {
 				e = copysign(GOOD_WINDOW, e);
 			}
-			note.gr = fabs(e) > GREAT_WINDOW;
+			note.gr = !(fabs(e) < GREAT_WINDOW);
 		} else {
-			if (fabs(e) > GREAT_WINDOW) {
+			if (!(fabs(e) < GREAT_WINDOW)) {
 				e = copysign(GREAT_WINDOW, e);
 			}
-			note.gr = fabs(e) > PERFECT_WINDOW;
+			note.gr = !(fabs(e) < PERFECT_WINDOW);
 		}
-		note.hitTime += e;
-		//note.gr = g(rng);
-		//note.grBegin = g(rng);
+		note.hitTime = note.time + hitOffset + e;
 	}
+	sort(combos.begin(), combos.end(), [](auto && a, auto && b) {
+		return a.hitTime < b.hitTime;
+	});
+#else
+	Random::bernoulli_distribution gHit(gRateHit);
+	Random::bernoulli_distribution gHoldBegin(gRateHoldBegin);
+	Random::bernoulli_distribution gHoldEnd(gRateHoldEnd);
+	Random::bernoulli_distribution gSlide(gRateSlide);
+	Random::bernoulli_distribution gSlideHoldEnd(gRateSlideHoldEnd);
+	for (auto && note : combos) {
+		if (note.isHold) {
+			if (note.isSlide) {
+				note.gr = gSlideHoldEnd(rng);
+				note.grBegin = gSlide(rng);
+			} else {
+				note.gr = gHoldEnd(rng);
+				note.grBegin = gHoldBegin(rng);
+			}
+		} else {
+			if (note.isSlide) {
+				note.gr = gSlide(rng);
+			} else {
+				note.gr = gHit(rng);
+			}
+			note.grBegin = false;
+		}
+	}
+#endif
 
 	double totalScore = 0;
 	size_t combo = 0;
@@ -139,7 +188,8 @@ int Live::simulate(int id) {
 			if (true) { // A1_78.color == A2_79.attribute
 				score *= 1.1;
 			}
-			score = floor(score / 100.);
+			score /= 100.;
+			score = floor(score);
 			if (!note.gr) { // Only judge hold end accuracy?
 				// L7_84 = L7_84 + L12_12.SkillEffect.PerfectBonus.sumBonus(A3_80)
 			}

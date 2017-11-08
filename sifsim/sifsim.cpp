@@ -109,6 +109,9 @@ int Test(const char * filename) {
 
 
 int Utf8Main(int argc, char * argv[]) {
+	random_device rd;
+	uint64_t seed = static_cast<uint64_t>(rd()) ^ static_cast<uint64_t>(rd()) << 32;
+
 	//return Test(argc >= 2 ? argv[1] : R"(K:\Documents\LL\charts\json\Live_s0812.json)");
 
 	string json;
@@ -121,9 +124,18 @@ int Utf8Main(int argc, char * argv[]) {
 	if (!live.prepare(json.c_str())) {
 		return 1;
 	}
-	for (int i = 0; i < 20; i++) {
-		cout << live.simulate(i) << endl;
+	vector<int> results;
+	constexpr int ITERS = 100000;
+	results.reserve(ITERS);
+	for (int i = 0; i < ITERS; i++) {
+		results.push_back(live.simulate(i, seed));
 	}
+	double avg = accumulate(results.begin(), results.end(), 0.) / results.size();
+	double sd = sqrt(accumulate(results.begin(), results.end(), 0., [avg](auto && s, auto && x) {
+		return fma(x - avg, x - avg, s);
+	}) / (results.size() - 1));
+	cout << avg << endl;
+	cout << sd << endl;
 	return 0;
 }
 
