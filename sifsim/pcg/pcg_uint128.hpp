@@ -159,14 +159,8 @@ inline bitcount_t trailingzeros(uint32_t v)
       31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
     };
 
-#if _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4146)
-#endif
-    return multiplyDeBruijnBitPos[((uint32_t)((v & -v) * 0x077CB531U)) >> 27];
-#if _MSC_VER
-#pragma warning(pop)
-#endif
+    return multiplyDeBruijnBitPos[((uint32_t)((v & (0U-v)) * 0x077CB531U)) >> 27];
+    //                                             ^^^^^^ Suppress MSVC warning
 }
 
 inline bitcount_t flog2(uint64_t v)
