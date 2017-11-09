@@ -1,38 +1,51 @@
 #include "live.h"
+#include "util.h"
 #include "rapidjson/document.h"
-#include "rapidjson/filereadstream.h"
-#include "pcg/pcg_random.hpp"
-#include <random>
+#include "rapidjsonutil.h"
 #include <cmath>
+#include <queue>
+#include <stdexcept>
 
 using namespace std;
-using namespace rapidjson;
 
 #ifndef USE_FAST_RANDOM
 #define USE_FAST_RANDOM 1
 #endif
 
-#ifndef SIMULATE_HIT_ERROR
-#define SIMULATE_HIT_ERROR 1
+#ifndef SIMULATE_HIT_TIMING
+#define SIMULATE_HIT_TIMING 1
 #endif
 
 #if USE_FAST_RANDOM
 #include "fastrandom.h"
-namespace Random = FastRandom;
+using namespace FastRandom;
 #else
-namespace Random = std;
+#include <random>
 #endif
 
 constexpr double SQRT1_2 = 0.70710678118654752;
 
 
 bool Live::prepare(const char * json) {
-	Document doc;
-	if (doc.Parse(json).HasParseError()) return false;
+	try {
+		rapidjson::Document doc;
+		if (doc.Parse(json).HasParseError()) {
+			throw runtime_error("Invalid JSON");
+		}
+		loadSettings(doc);
+		loadUnit(doc);
+		loadChart(doc);
+	} catch (const runtime_error &) {
+		return false;
+	}
+	return true;
+}
 
-	// Settings
+
+template <class JsonValue>
+void Live::loadSettings(const JsonValue & jsonObj) {
 	hiSpeed = 0.7;
-	hitOffset = 0.;
+	judgeOffset = 0.;
 	sigmaHit = 0.015;
 	sigmaHoldBegin = 0.015;
 	sigmaHoldEnd = 0.018;
@@ -42,162 +55,102 @@ bool Live::prepare(const char * json) {
 	gRateHoldEnd = erfc(PERFECT_WINDOW / sigmaHoldEnd * SQRT1_2);
 	gRateSlide = erfc(GREAT_WINDOW / sigmaSlide * SQRT1_2);
 	gRateSlideHoldEnd = erfc(GREAT_WINDOW / sigmaHoldEnd * SQRT1_2);
-
-	// Unit
-	attr = 63918;
-
-	// Chart
-	if (!doc.IsArray()) return false;
-	unsigned noteNum = doc.Size();
-	combos.resize(noteNum);
-	notes.resize(noteNum);
-	for (unsigned i = 0; i < noteNum; i++) {
-		if (!doc[i].IsObject()) return false;
-		auto & note = combos[i];
-		if (!doc[i]["position"].IsInt()) return false;
-		note.position = doc[i]["position"].GetInt();
-		if (!doc[i]["effect"].IsInt()) return false;
-		note.effect(doc[i]["effect"].GetInt());
-		if (!doc[i]["timing_sec"].IsDouble()) return false;
-		double t = doc[i]["timing_sec"].GetDouble();
-		// SIF built-in offset :<
-		t -= 0.1;
-		notes[i] = t - hiSpeed;
-		if (note.isHold) {
-			if (!doc[i]["effect_value"].IsDouble()) return false;
-			t += doc[i]["effect_value"].GetDouble();
-		}
-		note.time = t;
-		note.hitTime = t;
-	}
-
-	return true;
 }
 
 
-namespace {
-	struct TimedEvent {
-		enum class Type {
-			Hit,
-			SkillOff,
-			ActiveSkillOn,
-			PassiveSkillOn,
-		};
 
-		double time;
-		Type type;
-		int id;
+template <class JsonValue>
+void Live::loadUnit(const JsonValue & jsonObj) {
+	strength = 63918;
+	attributes.resize(9, 1);
+}
 
-		bool operator <(const TimedEvent & b) const {
-			return std::tie(time, type, id) < std::tie(b.time, b.type, b.id);
+
+template <class JsonValue>
+void Live::loadChart(const JsonValue & jsonObj) {
+	noteNum = jsonObj.Size();
+	notes.resize(noteNum);
+	for (int i = 0; i < noteNum; i++) {
+		auto && noteObj = GetJsonMemberObject(jsonObj, i);
+		Note & note = notes[i];
+		int p = GetJsonMemberInt(noteObj, "position");
+		note.position = 9 - p;
+		note.attribute = GetJsonMemberInt(noteObj, "notes_attribute");
+		note.effect(GetJsonMemberInt(noteObj, "effect"));
+		double t = GetJsonMemberDouble(noteObj, "timing_sec");
+		// SIF built-in offset :<
+		note.time = t - 0.1;
+		note.showTime = note.time - hiSpeed;
+		if (note.isHold) {
+			note.holdEndTime = note.time + GetJsonMemberDouble(noteObj, "effect_value");
+		} else {
+			note.holdEndTime = NAN;
 		}
-	};
+	}
+	stable_sort(notes.begin(), notes.end(), [](auto && a, auto && b) {
+		return a.time < b.time;
+	});
+
+	hits.clear();
+	for (int i = 0; i < noteNum; i++) {
+		const Note & note = notes[i];
+		hits.emplace_back(i, note, false);
+		if (note.isHold) {
+			hits.emplace_back(i, note, true);
+		}
+	}
+	sort(hits.begin(), hits.end(), [](auto && a, auto && b) {
+		return a.time < b.time;
+	});
 }
 
 
 int Live::simulate(int id, uint64_t seed) {
-	pcg32 rng(seed);
+	rng.seed(seed);
 	rng.advance(static_cast<uint64_t>(id) << 32);
 
-	// Hit accuracy
-#if SIMULATE_HIT_ERROR
-	Random::normal_distribution<> eHit(0, sigmaHit);
-	Random::normal_distribution<> eHoldEnd(0, sigmaHoldEnd);
-	Random::normal_distribution<> eSlide(0, sigmaSlide);
-	Random::bernoulli_distribution gHoldBegin(gRateHoldBegin);
-	Random::bernoulli_distribution gSlide(gRateSlide);
-	for (auto && note : combos) {
-		double e;
-		if (note.isHold) {
-			e = eHoldEnd(rng);
-			if (note.isSlide) {
-				note.grBegin = gSlide(rng);
-			} else {
-				note.grBegin = gHoldBegin(rng);
-			}
-		} else {
-			if (note.isSlide) {
-				e = eSlide(rng);
-			} else {
-				e = eHit(rng);
-			}
-			note.grBegin = false;
-		}
-		if (note.isSlide) {
-			if (!(fabs(e) < GOOD_WINDOW)) {
-				e = copysign(GOOD_WINDOW, e);
-			}
-			note.gr = !(fabs(e) < GREAT_WINDOW);
-		} else {
-			if (!(fabs(e) < GREAT_WINDOW)) {
-				e = copysign(GREAT_WINDOW, e);
-			}
-			note.gr = !(fabs(e) < PERFECT_WINDOW);
-		}
-		note.hitTime = note.time + hitOffset + e;
-	}
-	sort(combos.begin(), combos.end(), [](auto && a, auto && b) {
-		return a.hitTime < b.hitTime;
-	});
-#else
-	Random::bernoulli_distribution gHit(gRateHit);
-	Random::bernoulli_distribution gHoldBegin(gRateHoldBegin);
-	Random::bernoulli_distribution gHoldEnd(gRateHoldEnd);
-	Random::bernoulli_distribution gSlide(gRateSlide);
-	Random::bernoulli_distribution gSlideHoldEnd(gRateSlideHoldEnd);
-	for (auto && note : combos) {
-		if (note.isHold) {
-			if (note.isSlide) {
-				note.gr = gSlideHoldEnd(rng);
-				note.grBegin = gSlide(rng);
-			} else {
-				note.gr = gHoldEnd(rng);
-				note.grBegin = gHoldBegin(rng);
-			}
-		} else {
-			if (note.isSlide) {
-				note.gr = gSlide(rng);
-			} else {
-				note.gr = gHit(rng);
-			}
-			note.grBegin = false;
-		}
-	}
-#endif
+	initSimulation();
+	simulateHitError();
 
-	double totalScore = 0;
-	size_t combo = 0;
-	auto itComboMul = COMBO_MUL.cbegin();
-	while (combo < combos.size()) {
-		if (true) {
-			const auto & note = combos[combo];
-			double score = attr;
-			score *= note.gr ? 1.1 : 1.25;
-			score *= itComboMul->second;
+	while (hitIndex < hits.size() || !timedEvents.empty()) {
+		if (true || hitIndex < hits.size() && (timedEvents.empty()
+			|| !(timedEvents.top().time < hits[hitIndex].time))) {
+			Hit & hit = hits[hitIndex];
+			Note & note = notes[hit.noteIndex];
+			bool isPerfect = hit.isPerfect || judgeCount;
+			if (hit.isHoldBegin) {
+				note.isHoldBeginPerfect = isPerfect;
+				++hitIndex;
+				continue;
+			}
+			double noteScore = strength;
+			noteScore *= isPerfect ? 1.25 : 1.1;
+			noteScore *= itComboMul->second;
 			// Doesn't judge accuracy?
 			// L7_84 = L12_12.SkillEffect.PerfectBonus.apply(L7_84)
 			if (false) { // A0_77.live_member_category == A2_79.member_category
-				score *= 1.1;
+				noteScore *= 1.1;
 			}
 			if (note.isHold) {
-				score *= note.grBegin ? 1.1 : 1.25;
+				noteScore *= note.isHoldBeginPerfect ? 1.25 : 1.1;
 			}
 			if (note.isSlide) {
-				score *= 0.5;
+				noteScore *= 0.5;
 			}
-			if (true) { // A1_78.color == A2_79.attribute
-				score *= 1.1;
+			if (attributes[note.position] == note.attribute) {
+				noteScore *= 1.1;
 			}
-			score /= 100.;
-			score = floor(score);
-			if (!note.gr) { // Only judge hold end accuracy?
+			//noteScore = static_cast<int>(noteScore / 100.);
+			noteScore = floor(noteScore / 100.);
+			if (isPerfect) { // Only judge hold end accuracy?
 				// L7_84 = L7_84 + L12_12.SkillEffect.PerfectBonus.sumBonus(A3_80)
 			}
 			// L7_84 = L12_12.Combo.applyFixedValueBonus(L7_84)
 			// L8_117 = L19_19.SkillEffect.ScoreBonus.apply(L9_118)
 			// L9_118 = L7_116 * bonus_score_rate
-			score = ceil(score);
-			totalScore += score;
+			noteScore = ceil(noteScore);
+			score += noteScore;
+			++hitIndex;
 			++combo;
 			if (combo >= itComboMul->first) {
 				++itComboMul;
@@ -205,5 +158,98 @@ int Live::simulate(int id, uint64_t seed) {
 		}
 	}
 
-	return static_cast<int>(totalScore);
+	return static_cast<int>(score);
+}
+
+
+void Live::initSimulation() {
+	score = 0;
+	note = 0;
+	combo = 0;
+	perfect = 0;
+	starPerfect = 0;
+	judgeCount = 0;
+	hitIndex = 0;
+	itComboMul = COMBO_MUL.cbegin();
+}
+
+
+void Live::simulateHitError() {
+#if SIMULATE_HIT_TIMING
+	normal_distribution<> eHit(0, sigmaHit);
+	normal_distribution<> eHoldBegin(0, sigmaHoldBegin);
+	normal_distribution<> eHoldEnd(0, sigmaHoldEnd);
+	normal_distribution<> eSlide(0, sigmaSlide);
+	for (auto && hit : hits) {
+		Note & note = notes[hit.noteIndex];
+		double noteTime = hit.isHoldEnd ? note.holdEndTime : note.time;
+		double judgeTime = noteTime + judgeOffset;
+		double e;
+		if (hit.isHoldEnd) {
+			e = eHoldEnd(rng);
+		} else if (hit.isSlide) {
+			e = eSlide(rng);
+		} else if (hit.isHoldBegin) {
+			e = eHoldBegin(rng);
+		} else {
+			e = eHit(rng);
+		}
+		if (hit.isSlide) {
+			if (!(fabs(e) < GOOD_WINDOW)) {
+				e = copysign(GOOD_WINDOW, e);
+			}
+		} else {
+			if (!(fabs(e) < GREAT_WINDOW)) {
+				e = copysign(GREAT_WINDOW, e);
+			}
+		}
+		if (hit.isHoldEnd) {
+			double minTime = note.holdBeginHitTime + FRAME_TIME;
+			double minE = minTime - judgeTime;
+			if (e < minE) {
+				e = minE;
+			}
+		}
+		hit.time = judgeTime + e;
+		if (hit.isSlide) {
+			hit.isPerfect = (fabs(e) < GREAT_WINDOW);
+		} else {
+			hit.isPerfect = (fabs(e) < PERFECT_WINDOW);
+		}
+		if (hit.isHoldBegin) {
+			note.isHoldBeginPerfect = hit.isPerfect;
+			note.holdBeginHitTime = hit.time;
+		}
+	}
+	insertion_sort(hits.begin(), hits.end(), [](auto && a, auto && b) {
+		return a.time < b.time;
+	});
+#else
+	bernoulli_distribution gHit(gRateHit);
+	bernoulli_distribution gHoldBegin(gRateHoldBegin);
+	bernoulli_distribution gHoldEnd(gRateHoldEnd);
+	bernoulli_distribution gSlide(gRateSlide);
+	bernoulli_distribution gSlideHoldEnd(gRateSlideHoldEnd);
+	for (auto && hit : hits) {
+		if (hit.isSlide) {
+			if (hit.isHoldEnd) {
+				hit.isPerfect = !gSlideHoldEnd(rng);
+			} else {
+				hit.isPerfect = !gSlide(rng);
+			}
+		} else {
+			if (hit.isHoldBegin) {
+				hit.isPerfect = !gHoldBegin(rng);
+			} else if (hit.isHoldEnd) {
+				hit.isPerfect = !gHoldEnd(rng);
+			} else {
+				hit.isPerfect = !gHit(rng);
+			}
+		}
+		if (hit.isHoldBegin) {
+			Note & note = notes[hit.noteIndex];
+			note.isHoldBeginPerfect = hit.isPerfect;
+		}
+	}
+#endif
 }

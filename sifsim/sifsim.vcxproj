@@ -146,6 +146,9 @@
     <ClInclude Include="fastrandom.h" />
     <ClInclude Include="live.h" />
     <ClInclude Include="nativechar.h" />
+    <ClInclude Include="note.h" />
+    <ClInclude Include="rapidjsonutil.h" />
+    <ClInclude Include="skill.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

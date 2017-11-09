@@ -125,43 +125,27 @@ int Utf8Main(int argc, char * argv[]) {
 	if (!live.prepare(json.c_str())) {
 		return 1;
 	}
-	vector<double> results;
-	constexpr int ITERS = 100000000;
-	//results.reserve(ITERS);
-	pcg32 rng(random_device{}());
-	FastRandom::bernoulli_distribution bd(0.001);
-	int num = 0;
+	double sum = 0.;
+	vector<int> results;
+#if NDEBUG
+	constexpr int ITERS = 100000;
+#else
+	constexpr int ITERS = 1000;
+#endif
+	results.reserve(ITERS);
 	for (int i = 0; i < ITERS; i++) {
-		num += bd(rng);
+		results.push_back(live.simulate(i, seed));
 	}
-	cout << num << endl;
-	FastRandom::normal_distribution<> d;
-	double sum = 0;
-	for (int i = 0; i < ITERS; i++) {
-		//results.push_back(live.simulate(i, seed));
-		sum += d(rng);
-		//results.push_back(d(rng));
-	}
-	cout << sum << endl;
-	return 0;
-	cout << "Done\n";
+	cout << "[ Done ]\n";
 	double avg = accumulate(results.begin(), results.end(), 0.) / results.size();
 	double sd = sqrt(accumulate(results.begin(), results.end(), 0., [avg](auto && s, auto && x) {
 		return s + (x - avg) * (x - avg);
 	}) / (results.size() - 1));
-	cout << avg << endl;
-	cout << sd << endl;
+	cout << "Avg\t" << avg << endl;
+	cout << "SD\t" << sd << endl;
 	auto m = minmax_element(results.begin(), results.end());
-	cout << *m.first << endl << *m.second << endl;
-	return 0;
-	vector<int> count(1001);
-	for (auto && x : results) {
-		double y = fabs(x) < 5 ? x : copysign(5, x);
-		++count[lrint((y + 5) * 100)];
-	}
-	for (auto && n : count) {
-		cout << n << endl;
-	}
+	cout << "Min\t" << *m.first << endl;
+	cout << "Max\t" << *m.second << endl;
 	return 0;
 }
 

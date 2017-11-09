@@ -35,5 +35,14 @@
     <ClInclude Include="fastrandom.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="rapidjsonutil.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="note.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="skill.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
