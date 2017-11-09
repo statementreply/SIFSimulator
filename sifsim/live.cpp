@@ -5,6 +5,8 @@
 #include <cmath>
 #include <queue>
 #include <stdexcept>
+#include <algorithm>
+#include <numeric>
 
 using namespace std;
 
@@ -22,8 +24,6 @@ using namespace FastRandom;
 #else
 #include <random>
 #endif
-
-constexpr double SQRT1_2 = 0.70710678118654752;
 
 
 bool Live::prepare(const char * json) {
@@ -44,6 +44,7 @@ bool Live::prepare(const char * json) {
 
 template <class JsonValue>
 void Live::loadSettings(const JsonValue & jsonObj) {
+	constexpr double SQRT1_2 = 0.707106781186547524401;
 	hiSpeed = 0.7;
 	judgeOffset = 0.;
 	sigmaHit = 0.015;
@@ -61,8 +62,29 @@ void Live::loadSettings(const JsonValue & jsonObj) {
 
 template <class JsonValue>
 void Live::loadUnit(const JsonValue & jsonObj) {
-	strength = 63918;
+	strength = 55820;
+	attributes.clear();
 	attributes.resize(9, 1);
+	skills.clear();
+
+	Skill skill;
+	skill.effect = (int)Skill::Effect::ScorePlus;
+	skill.discharge = (int)Skill::Discharge::Immediate;
+	skill.trigger = (int)Skill::Trigger::NotesCount;
+	skill.level = 8;
+	skill.maxLevel = 8;
+	skill.levelData.effectValue = 3500;
+	skill.levelData.dischargeTime = 0;
+	skill.levelData.triggerValue = 22;
+	skill.levelData.activationRate = 50;
+	skills.push_back(skill);
+	skillNum = static_cast<int>(skills.size());
+
+	skillIds.clear();
+	skillIds.resize(skillNum);
+	for (int i = 0; i < skillNum; i++) {
+		skillIds[i] = (unsigned)i << 16 | (unsigned)i;
+	}
 }
 
 
@@ -112,49 +134,58 @@ int Live::simulate(int id, uint64_t seed) {
 	initSimulation();
 	simulateHitError();
 
-	while (hitIndex < hits.size() || !timedEvents.empty()) {
-		if (true || hitIndex < hits.size() && (timedEvents.empty()
+	int trigger = 0;
+	for (int i = 0; i < skillNum; i++) {
+		const Skill & skill = skills[i];
+		switch ((Skill::Trigger)skill.trigger) {
+		case Skill::Trigger::NotesCount:
+			trigger += skill.levelData.triggerValue;
+			timedEvents.push({
+				notes[trigger - 1].showTime,
+				TimedEvent::Type::ActiveSkillOn,
+				0
+			});
+			break;
+		}
+	}
+
+	for (;;) {
+		if (hitIndex < hits.size() && (timedEvents.empty()
 			|| !(timedEvents.top().time < hits[hitIndex].time))) {
-			Hit & hit = hits[hitIndex];
-			Note & note = notes[hit.noteIndex];
-			bool isPerfect = hit.isPerfect || judgeCount;
+
+			const Hit & hit = hits[hitIndex];
 			if (hit.isHoldBegin) {
+				bool isPerfect = hit.isPerfect || judgeCount;
+				Note & note = notes[hit.noteIndex];
 				note.isHoldBeginPerfect = isPerfect;
 				++hitIndex;
 				continue;
 			}
-			double noteScore = strength;
-			noteScore *= isPerfect ? 1.25 : 1.1;
-			noteScore *= itComboMul->second;
-			// Doesn't judge accuracy?
-			// L7_84 = L12_12.SkillEffect.PerfectBonus.apply(L7_84)
-			if (false) { // A0_77.live_member_category == A2_79.member_category
-				noteScore *= 1.1;
-			}
-			if (note.isHold) {
-				noteScore *= note.isHoldBeginPerfect ? 1.25 : 1.1;
-			}
-			if (note.isSlide) {
-				noteScore *= 0.5;
-			}
-			if (attributes[note.position] == note.attribute) {
-				noteScore *= 1.1;
-			}
-			//noteScore = static_cast<int>(noteScore / 100.);
-			noteScore = floor(noteScore / 100.);
-			if (isPerfect) { // Only judge hold end accuracy?
-				// L7_84 = L7_84 + L12_12.SkillEffect.PerfectBonus.sumBonus(A3_80)
-			}
-			// L7_84 = L12_12.Combo.applyFixedValueBonus(L7_84)
-			// L8_117 = L19_19.SkillEffect.ScoreBonus.apply(L9_118)
-			// L9_118 = L7_116 * bonus_score_rate
-			noteScore = ceil(noteScore);
-			score += noteScore;
-			++hitIndex;
+
 			++combo;
-			if (combo >= itComboMul->first) {
+			if (combo > itComboMul->first) {
 				++itComboMul;
 			}
+			score += computeScore();
+
+			++hitIndex;
+		} else if (!timedEvents.empty()) {
+			TimedEvent event = timedEvents.top();
+			const Skill & skill = skills[event.id & 0xffff];
+			timedEvents.pop();
+			if (rng(100) < skill.levelData.activationRate) {
+				score += skill.levelData.effectValue;
+			}
+			trigger += skill.levelData.triggerValue;
+			if (trigger <= noteNum) {
+				timedEvents.push({
+					notes[trigger - 1].showTime,
+					TimedEvent::Type::ActiveSkillOn,
+					0
+				});
+			}
+		} else {
+			break;
 		}
 	}
 
@@ -171,6 +202,15 @@ void Live::initSimulation() {
 	judgeCount = 0;
 	hitIndex = 0;
 	itComboMul = COMBO_MUL.cbegin();
+	if (!timedEvents.empty()) {
+		timedEvents = MinPriorityQueue<TimedEvent>();
+	}
+	//shuffle(skillIdMap.begin(), skillIdMap.end(), rng);
+	//if (skillNum > 0) {
+	//	for (int i = skillNum - 1; i > 0; --i) {
+	//		swap(skillIdMap[i], skillIdMap[rng(i + 1)]);
+	//	}
+	//}
 }
 
 
@@ -252,4 +292,37 @@ void Live::simulateHitError() {
 		}
 	}
 #endif
+}
+
+
+double Live::computeScore() {
+	const Hit & hit = hits[hitIndex];
+	bool isPerfect = hit.isPerfect || judgeCount;
+	const Note & note = notes[hit.noteIndex];
+	double noteScore = strength;
+	noteScore *= isPerfect ? 1.25 : 1.1;
+	noteScore *= itComboMul->second;
+	// Doesn't judge accuracy?
+	// L7_84 = L12_12.SkillEffect.PerfectBonus.apply(L7_84)
+	if (false) { // A0_77.live_member_category == A2_79.member_category
+		noteScore *= 1.1;
+	}
+	if (note.isHold) {
+		noteScore *= note.isHoldBeginPerfect ? 1.25 : 1.1;
+	}
+	if (note.isSlide) {
+		noteScore *= 0.5;
+	}
+	if (attributes[note.position] == note.attribute) {
+		noteScore *= 1.1;
+	}
+	//noteScore = static_cast<int>(noteScore / 100.);
+	noteScore = floor(noteScore / 100.);
+	if (isPerfect) { // Only judge hold end accuracy?
+					 // L7_84 = L7_84 + L12_12.SkillEffect.PerfectBonus.sumBonus(A3_80)
+	}
+	// L7_84 = L12_12.Combo.applyFixedValueBonus(L7_84)
+	// L8_117 = L19_19.SkillEffect.ScoreBonus.apply(L9_118)
+	// L9_118 = L7_116 * bonus_score_rate
+	return ceil(noteScore);
 }

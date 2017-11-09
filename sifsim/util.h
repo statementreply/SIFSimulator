@@ -16,42 +16,51 @@ auto ReadAllText(std::basic_istream<CharT, Traits> & ist) {
 
 
 template <class Compare>
-class ReverseCompare {
+class ReverseComparer {
 public:
-	template <class ... Args>
-	ReverseCompare(Args && ... args) : comp(std::forward(args)...) {};
+	ReverseComparer() = default;
+	ReverseComparer(const ReverseComparer<Compare> &) = default;
+	ReverseComparer(ReverseComparer<Compare> &&) = default;
+	ReverseComparer<Compare> & operator =(const ReverseComparer<Compare> &) = default;
+	ReverseComparer<Compare> & operator =(ReverseComparer<Compare> &&) = default;
+
+	explicit ReverseComparer(const Compare & comp) : comp(comp) {}
+	explicit ReverseComparer(Compare && comp) : comp(comp) {}
 
 	template <class U, class V>
-	bool operator ()(U && u, V && v) & {
-		return std::forward(comp(std::forward(v), std::forward(u)));
+	constexpr bool operator ()(U && u, V && v) & {
+		return comp(std::forward<U>(v), std::forward<V>(u));
 	}
 
 	template <class U, class V>
 	bool operator ()(U && u, V && v) && {
-		return std::forward(comp(std::forward(v), std::forward(u)));
+		return comp(std::forward<U>(v), std::forward<V>(u));
 	}
 
 	template <class U, class V>
 	bool operator ()(U && u, V && v) const & {
-		return std::forward(comp(std::forward(v), std::forward(u)));
+		return comp(std::forward<U>(v), std::forward<V>(u));
 	}
 
 	template <class U, class V>
 	bool operator ()(U && u, V && v) const && {
-		return std::forward(comp(std::forward(v), std::forward(u)));
+		return comp(std::forward<U>(v), std::forward<V>(u));
 	}
 
 private:
 	Compare comp;
 };
 
+template <class Compare>
+ReverseComparer<Compare> MakeReverseComparer(Compare comp) {
+	return ReverseComparer<Compare>(comp);
+}
+
 template <
 	class T,
 	class Container = std::vector<T>,
 	class Compare = std::less<typename Container::value_type>
-> class MinPriorityQueue
-	: public std::priority_queue<T, Container, ReverseCompare<Compare>> {
-};
+> using MinPriorityQueue = std::priority_queue<T, Container, ReverseComparer<Compare>>;
 
 
 template <class BidirIt, class Compare>

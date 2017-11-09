@@ -4,7 +4,7 @@
 #include <array>
 #include <tuple>
 #include <cstdint>
-#include <limits>
+#include <climits>
 #include "pcg/pcg_random.hpp"
 #include "note.h"
 #include "skill.h"
@@ -45,6 +45,8 @@ private:
 
 	void simulateHitError();
 
+	double computeScore();
+
 private:
 	struct Hit {
 		double time;
@@ -67,7 +69,6 @@ private:
 
 	struct TimedEvent {
 		enum class Type {
-			Hit,
 			SkillOff,
 			ActiveSkillOn,
 			PassiveSkillOn,
@@ -75,7 +76,7 @@ private:
 
 		double time;
 		Type type;
-		int id;
+		unsigned id;
 
 		bool operator <(const TimedEvent & b) const {
 			return std::tie(time, type, id) < std::tie(b.time, b.type, b.id);
@@ -101,6 +102,8 @@ private:
 	// Unit
 	double strength;
 	std::vector<int> attributes;
+	int skillNum;
+	std::vector<Skill> skills;
 
 	// Chart
 	int noteNum;
@@ -117,4 +120,5 @@ private:
 	decltype(COMBO_MUL)::const_iterator itComboMul;
 	std::vector<Hit> hits;
 	MinPriorityQueue<TimedEvent> timedEvents;
+	std::vector<unsigned> skillIds;
 };
