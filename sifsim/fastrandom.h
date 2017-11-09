@@ -176,6 +176,11 @@ namespace FastRandom {
 	private:
 		template<class Generator>
 		result_type _eval(Generator & g, const param_type & param) const {
+			return _evalInternal(g) * param._stddev + param._mean;
+		}
+
+		template<class Generator>
+		double _evalInternal(Generator & g) const {
 			static_assert(g.min() == 0 && g.max() >= std::numeric_limits<uint32_t>::max(),
 				"UniformRandomBitGenerator for FastRandom shall generate at least 32 bits per call");
 			for (;;) {
