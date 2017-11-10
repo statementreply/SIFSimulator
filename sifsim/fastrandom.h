@@ -83,7 +83,7 @@ namespace FastRandom {
 			for (;;) {
 				uint32_t u = static_cast<uint32_t>(g());
 				if (u != 0) {
-					return u <= _param._p32;
+					return u <= param._p32;
 				}
 			};
 		}
