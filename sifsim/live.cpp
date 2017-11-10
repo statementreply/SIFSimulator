@@ -100,6 +100,7 @@ void Live::loadUnit(const rapidjson::Value & jsonObj) {
 
 
 void Live::loadChart(const rapidjson::Value & jsonObj) {
+	memberCategory = 1;
 	noteNum = jsonObj.Size();
 	notes.resize(noteNum);
 	for (int i = 0; i < noteNum; i++) {
@@ -323,12 +324,13 @@ void Live::simulateHitError() {
 
 
 double Live::computeScore(const LiveNote & note, bool isPerfect) const {
+	const auto & card = cards[note.position];
 	double noteScore = status;
 	noteScore *= isPerfect ? 1.25 : 1.1;
 	noteScore *= itComboMul->second;
 	// Doesn't judge accuracy?
 	// L7_84 = L12_12.SkillEffect.PerfectBonus.apply(L7_84)
-	if (false) { // A0_77.live_member_category == A2_79.member_category
+	if (card.category == memberCategory) {
 		noteScore *= 1.1;
 	}
 	if (note.isHold) {
@@ -337,7 +339,7 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 	if (note.isSlide) {
 		noteScore *= 0.5;
 	}
-	if (cards[note.position].attribute == note.attribute) {
+	if (card.attribute == note.attribute) {
 		noteScore *= 1.1;
 	}
 	//noteScore = static_cast<int>(noteScore / 100.);

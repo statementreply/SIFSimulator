@@ -120,6 +120,7 @@ private:
 	std::vector<LiveCard> cards;
 
 	// Chart
+	int memberCategory;
 	int noteNum;
 	std::vector<LiveNote> notes;
 
