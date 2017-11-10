@@ -1,6 +1,8 @@
 #pragma once
 
 struct Note {
+	enum class Effect;
+
 	double time;
 	double holdEndTime;
 	double showTime;
@@ -8,16 +10,12 @@ struct Note {
 	int attribute;
 	bool isHold;
 	bool isSlide;
-	bool isBomb;
+	//bool isBomb;
 
-	// Simulation state
-	bool isHoldBeginPerfect;
-	double holdBeginHitTime;
-
-	void effect(int effect) {
-		isHold = effect == (int)Effect::Hold || effect == (int)Effect::SlideHold;
-		isSlide = effect >= (int)Effect::Slide && effect <= (int)Effect::SlideHold;
-		isBomb = effect >= (int)Effect::Bomb1 && effect <= (int)Effect::Bomb9;
+	void effect(Effect effect) {
+		isHold = effect == Effect::Hold || effect == Effect::SlideHold;
+		isSlide = effect >= Effect::Slide && effect <= Effect::SlideHold;
+		//isBomb = effect >= Effect::Bomb1 && effect <= Effect::Bomb9;
 	}
 
 	enum class Effect {

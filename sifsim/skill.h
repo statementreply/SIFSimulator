@@ -3,30 +3,34 @@
 #include <vector>
 #include <utility>
 
-
 struct Skill {
-	int effect;
-	int discharge;
-	int trigger;
+	enum class Effect;
+	enum class Discharge;
+	enum class Trigger;
+	enum class SubEffect;
+
+	bool valid;
+	Effect effect;
+	Discharge discharge;
+	Trigger trigger;
 	int level;
 	int maxLevel;
-	std::vector<int> effectTargetList;
-	std::vector<std::pair<int, int>> triggerTargetList;
+	std::vector<int> effectTargetst;
+	std::vector<std::pair<int, int>> triggerTargets;
 	std::vector<unsigned char> triggerStatus;
 
 	struct LevelData {
 		double effectValue;
 		double dischargeTime;
-		double triggerValue;
-		double activationRate;
+		int triggerValue;
+		int activationRate;
 	};
-	LevelData levelData;
-	std::vector<LevelData> levelList;
+	std::vector<LevelData> levels;
 
 	struct SubSkill {
-		int effect;
+		SubEffect effect;
 	};
-	std::vector<SubSkill> subSkillList;
+	std::vector<SubSkill> subSkills;
 
 	enum class Effect {
 		None = 0,

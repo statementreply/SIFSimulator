@@ -14,6 +14,11 @@ auto ReadAllText(std::basic_istream<CharT, Traits> & ist) {
 		std::istream_iterator<CharT, CharT, Traits>());
 }
 
+template <class CharT, class Traits>
+auto ReadAllText(std::basic_istream<CharT, Traits> && ist) {
+	return ReadAllText(ist);
+}
+
 
 template <class Compare>
 class ReverseComparer {
@@ -65,19 +70,13 @@ template <
 
 template <class BidirIt, class Compare>
 void insertion_sort(BidirIt first, BidirIt last, Compare comp) {
-	if (first == last) {
-		return;
-	}
-	for (auto curr = std::next(first); curr != last; ++curr) {
-		for (auto a = curr, b = std::prev(curr); ; --a, --b) {
-			if (comp(*a, *b)) {
-				std::iter_swap(a, b);
-			} else {
+	for (auto curr = first; curr != last; ++curr) {
+		for (auto a = curr; a != first ; --a) {
+			auto b = std::prev(a);
+			if (!comp(*a, *b)) {
 				break;
 			}
-			if (b == first) {
-				break;
-			}
+			std::iter_swap(a, b);
 		}
 	}
 }

@@ -44,5 +44,8 @@
     <ClInclude Include="skill.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="card.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

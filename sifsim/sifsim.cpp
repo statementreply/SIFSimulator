@@ -125,7 +125,7 @@ int Utf8Main(int argc, char * argv[]) {
 	if (!live.prepare(json.c_str())) {
 		return 1;
 	}
-	double sum = 0.;
+	//double sum = 0.;
 	vector<int> results;
 #if NDEBUG
 	constexpr int ITERS = 100000;

@@ -6,10 +6,10 @@
 #include <cstdint>
 #include <climits>
 #include "pcg/pcg_random.hpp"
+#include "rapidjson/document.h"
 #include "note.h"
-#include "skill.h"
+#include "card.h"
 #include "util.h"
-
 
 class Live {
 public:
@@ -32,20 +32,16 @@ public:
 	} };
 
 private:
-	template <class JsonValue>
-	void loadSettings(const JsonValue & jsonObj);
+	struct LiveNote;
 
-	template <class JsonValue>
-	void loadUnit(const JsonValue & jsonObj);
-
-	template <class JsonValue>
-	void loadChart(const JsonValue & jsonObj);
+	void loadSettings(const rapidjson::Value & jsonObj);
+	void loadUnit(const rapidjson::Value & jsonObj);
+	void loadChart(const rapidjson::Value & jsonObj);
 
 	void initSimulation();
 
 	void simulateHitError();
-
-	double computeScore();
+	double computeScore(const LiveNote & note, bool isPerfect) const;
 
 private:
 	struct Hit {
@@ -63,23 +59,42 @@ private:
 			, isPerfect(true)
 			, isHoldBegin(note.isHold && !isHoldEnd)
 			, isHoldEnd(isHoldEnd)
-			, isSlide(note.isSlide) {
+			, isSlide(note.isSlide) {}
+	};
+
+	struct LiveNote : public Note {
+		bool isHoldBeginPerfect;
+		double holdBeginHitTime;
+	};
+
+	struct LiveCard : public Card {
+		unsigned skillId;
+		int currentSkillLevel;
+		int nextTrigger;
+
+		const Skill::LevelData & skillLevel() const {
+			return skill.levels[currentSkillLevel - 1];
 		}
 	};
 
-	struct TimedEvent {
-		enum class Type {
-			SkillOff,
-			ActiveSkillOn,
-			PassiveSkillOn,
-		};
+	enum SkillIdFlags : unsigned {
+		SkillEventMask      = 0xf00000,
+		SkillOff            = 0x000000,
+		SkillOn             = 0x100000,
+		SkillTriggerMask    = 0xf0000,
+		ActiveSkill         = 0x00000,
+		PassiveSkill        = 0x10000,
+		SkillOrderMask      = 0xff00,
+		SkillIndexMask      = 0xff,
+	};
+	static constexpr int SKILL_ORDER_SHIFT = 8;
 
+	struct SkillEvent {
 		double time;
-		Type type;
 		unsigned id;
 
-		bool operator <(const TimedEvent & b) const {
-			return std::tie(time, type, id) < std::tie(b.time, b.type, b.id);
+		bool operator <(const SkillEvent & b) const {
+			return std::tie(time, id) < std::tie(b.time, b.id);
 		}
 	};
 
@@ -100,25 +115,23 @@ private:
 	double gRateSlideHoldEnd;
 
 	// Unit
-	double strength;
-	std::vector<int> attributes;
-	int skillNum;
-	std::vector<Skill> skills;
+	double status;
+	int cardNum;
+	std::vector<LiveCard> cards;
 
 	// Chart
 	int noteNum;
-	std::vector<Note> notes;
+	std::vector<LiveNote> notes;
 
 	// Simulation
+	size_t hitIndex;
 	double score;
-	int note;
 	int combo;
 	int perfect;
 	int starPerfect;
 	int judgeCount;
-	size_t hitIndex;
 	decltype(COMBO_MUL)::const_iterator itComboMul;
 	std::vector<Hit> hits;
-	MinPriorityQueue<TimedEvent> timedEvents;
-	std::vector<unsigned> skillIds;
+	std::vector<double> combos;
+	MinPriorityQueue<SkillEvent> skillEvents;
 };
