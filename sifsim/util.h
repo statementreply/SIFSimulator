@@ -1,4 +1,5 @@
 #pragma once
+#include "configure.h"
 
 #include <string>
 #include <iostream>
@@ -24,10 +25,10 @@ template <class Compare>
 class ReverseComparer {
 public:
 	ReverseComparer() = default;
-	ReverseComparer(const ReverseComparer<Compare> &) = default;
-	ReverseComparer(ReverseComparer<Compare> &&) = default;
-	ReverseComparer<Compare> & operator =(const ReverseComparer<Compare> &) = default;
-	ReverseComparer<Compare> & operator =(ReverseComparer<Compare> &&) = default;
+	ReverseComparer(const ReverseComparer &) = default;
+	ReverseComparer(ReverseComparer &&) = default;
+	ReverseComparer & operator =(const ReverseComparer &) = default;
+	ReverseComparer & operator =(ReverseComparer &&) = default;
 
 	explicit ReverseComparer(const Compare & comp) : comp(comp) {}
 	explicit ReverseComparer(Compare && comp) : comp(comp) {}
@@ -67,9 +68,16 @@ template <
 	class Compare = std::less<typename Container::value_type>
 > using MinPriorityQueue = std::priority_queue<T, Container, ReverseComparer<Compare>>;
 
+template <class T, class Container, class Compare>
+void clear(std::priority_queue<T, Container, Compare> & queue) {
+	while (!queue.empty()) {
+		queue.pop();
+	}
+}
+
 
 template <class BidirIt, class Compare>
-void insertion_sort(BidirIt first, BidirIt last, Compare comp) {
+void insertionSort(BidirIt first, BidirIt last, Compare comp) {
 	for (auto curr = first; curr != last; ++curr) {
 		for (auto a = curr; a != first ; --a) {
 			auto b = std::prev(a);
@@ -82,8 +90,8 @@ void insertion_sort(BidirIt first, BidirIt last, Compare comp) {
 }
 
 template <class BidirIt>
-void insertion_sort(BidirIt first, BidirIt last) {
-	insertion_sort(first, last, std::less<>());
+void insertionSort(BidirIt first, BidirIt last) {
+	insertionSort(first, last, std::less<>());
 }
 
 

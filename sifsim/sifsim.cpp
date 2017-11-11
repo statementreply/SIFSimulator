@@ -1,8 +1,10 @@
+#include "configure.h"
 #include "nativechar.h"
 #include "live.h"
 #include "util.h"
 #include <string>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 
 
@@ -133,14 +135,21 @@ int Utf8Main(int argc, char * argv[]) {
 	constexpr int ITERS = 1000;
 #endif
 	results.reserve(ITERS);
+	clock_t t0 = clock();
 	for (int i = 0; i < ITERS; i++) {
 		results.push_back(live.simulate(i, seed));
+		if (!(~i & 0xfff)) {
+			clock_t t1 = clock();
+			cout << fixed << setprecision(3) << ((double)(t1 - t0) / CLOCKS_PER_SEC) << '\n';
+			t0 = t1;
+		}
 	}
 	cout << "[ Done ]\n";
 	double avg = accumulate(results.begin(), results.end(), 0.) / results.size();
 	double sd = sqrt(accumulate(results.begin(), results.end(), 0., [avg](auto && s, auto && x) {
 		return s + (x - avg) * (x - avg);
 	}) / (results.size() - 1));
+	cout << fixed << setprecision(0);
 	cout << "Avg\t" << avg << endl;
 	cout << "SD\t" << sd << endl;
 	auto m = minmax_element(results.begin(), results.end());

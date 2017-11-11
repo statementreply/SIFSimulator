@@ -8,12 +8,12 @@
 namespace FastRandom {
 	// Faster bernoulli distribution
 	// Requires 32+ bit UniformRandomBitGenerator
-	class bernoulli_distribution {
+	class BernoulliDistribution {
 	public:
 		typedef bool result_type;
 
 		struct param_type {
-			typedef bernoulli_distribution distribution_type;
+			typedef BernoulliDistribution distribution_type;
 
 			explicit param_type(double p = 0.5) {
 				_p32 = static_cast<uint32_t>(std::llrint(
@@ -35,11 +35,11 @@ namespace FastRandom {
 			uint32_t _p32;
 		};
 
-		explicit bernoulli_distribution(double p = 0.5)
+		explicit BernoulliDistribution(double p = 0.5)
 			: _param(p) {
 		}
 
-		explicit bernoulli_distribution(const param_type & param)
+		explicit BernoulliDistribution(const param_type & param)
 			: _param(param) {
 		}
 
@@ -95,12 +95,12 @@ namespace FastRandom {
 	// Faster normal distribution (Ziggurat algorithm)
 	// Requires 32+ bit UniformRandomBitGenerator
 	template <class RealType = double>
-	class normal_distribution {
+	class NormalDistribution {
 	public:
 		typedef RealType result_type;
 
 		struct param_type {
-			typedef normal_distribution<RealType> distribution_type;
+			typedef NormalDistribution distribution_type;
 
 			explicit param_type(RealType mean = 0., RealType stddev = 1.) {
 				static double _initFlag = _initTables();
@@ -129,11 +129,11 @@ namespace FastRandom {
 			RealType _stddev;
 		};
 
-		explicit normal_distribution(RealType mean = 0., RealType stddev = 1.)
+		explicit NormalDistribution(RealType mean = 0., RealType stddev = 1.)
 			: _param(mean, stddev) {
 		}
 
-		explicit normal_distribution(const param_type & param)
+		explicit NormalDistribution(const param_type & param)
 			: _param(param) {
 		}
 

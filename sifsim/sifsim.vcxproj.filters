@@ -47,5 +47,8 @@
     <ClInclude Include="card.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="configure.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

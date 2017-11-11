@@ -10,12 +10,12 @@ struct Note {
 	int attribute;
 	bool isHold;
 	bool isSlide;
-	//bool isBomb;
+	bool isBomb;
 
 	void effect(Effect effect) {
 		isHold = effect == Effect::Hold || effect == Effect::SlideHold;
 		isSlide = effect >= Effect::Slide && effect <= Effect::SlideHold;
-		//isBomb = effect >= Effect::Bomb1 && effect <= Effect::Bomb9;
+		isBomb = effect >= Effect::Bomb1 && effect <= Effect::Bomb9;
 	}
 
 	enum class Effect {

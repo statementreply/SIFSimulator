@@ -15,9 +15,9 @@ struct Skill {
 	Trigger trigger;
 	int level;
 	int maxLevel;
-	std::vector<int> effectTargetst;
+	std::vector<int> effectTargets;
+	int triggerTypeNum;
 	std::vector<std::pair<int, int>> triggerTargets;
-	std::vector<unsigned char> triggerStatus;
 
 	struct LevelData {
 		double effectValue;

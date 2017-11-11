@@ -51,6 +51,7 @@ private:
 	void skillOn(LiveCard & card);
 	void skillOff(LiveCard & card);
 	void skillSetNextTrigger(LiveCard & card);
+	void updateChain(const LiveCard & card);
 
 private:
 	struct Hit {
@@ -79,7 +80,10 @@ private:
 	struct LiveCard : public Card {
 		unsigned skillId;
 		int currentSkillLevel;
+		bool isActive;
 		int nextTrigger;
+		int remainingTriggerType;
+		std::vector<int> triggerStatus;
 
 		const Skill::LevelData & skillLevel() const {
 			return skill.levels[currentSkillLevel - 1];
@@ -140,12 +144,14 @@ private:
 	// Chart
 	int memberCategory;
 	int noteNum;
+	double lastNoteShowTime;
 	std::vector<LiveNote> notes;
 
 	// Simulation
 	double time;
 	size_t hitIndex;
 	double score;
+	bool skillEnabled;
 	int combo;
 	int perfect;
 	int starPerfect;
