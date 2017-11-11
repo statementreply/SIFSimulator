@@ -33,6 +33,7 @@ public:
 
 private:
 	struct LiveNote;
+	struct LiveCard;
 
 	void loadSettings(const rapidjson::Value & jsonObj);
 	void loadUnit(const rapidjson::Value & jsonObj);
@@ -45,6 +46,11 @@ private:
 
 	void simulateHitError();
 	double computeScore(const LiveNote & note, bool isPerfect) const;
+
+	void skillTrigger(LiveCard & card);
+	void skillOn(LiveCard & card);
+	void skillOff(LiveCard & card);
+	void skillSetNextTrigger(LiveCard & card);
 
 private:
 	struct Hit {
@@ -84,7 +90,7 @@ private:
 		SkillEventMask      = 0xf00000,
 		SkillOff            = 0x000000,
 		SkillOn             = 0x100000,
-		SkillTriggerMask    = 0xf0000,
+		SkillPriorityMask   = 0xf0000,
 		ActiveSkill         = 0x00000,
 		PassiveSkill        = 0x10000,
 		SkillOrderMask      = 0xff00,
@@ -137,6 +143,7 @@ private:
 	std::vector<LiveNote> notes;
 
 	// Simulation
+	double time;
 	size_t hitIndex;
 	double score;
 	int combo;
@@ -150,4 +157,5 @@ private:
 	MinPriorityQueue<SkillTrigger> scoreTriggers;
 	MinPriorityQueue<SkillTrigger> perfectTriggers;
 	MinPriorityQueue<SkillTrigger> starPerfectTriggers;
+	std::vector<int> chainTriggers;
 };

@@ -95,7 +95,7 @@ void Live::loadUnit(const rapidjson::Value & jsonObj) {
 	level.dischargeTime = 0;
 	level.triggerValue = 22;
 	level.activationRate = 50;
-	card.skillId |= SkillIdFlags::ActiveSkill;
+	card.skillId |= ActiveSkill;
 	card.currentSkillLevel = skill.level;
 }
 
@@ -164,15 +164,7 @@ int Live::simulate(int id, uint64_t seed) {
 		if (!skill.valid) {
 			continue;
 		}
-		const auto & level = card.skillLevel();
-		switch ((Skill::Trigger)skill.trigger) {
-		case Skill::Trigger::NotesCount:
-			if (card.nextTrigger <= noteNum) {
-				skillEvents.push({ notes[card.nextTrigger - 1].showTime, SkillOn | card.skillId });
-				card.nextTrigger += level.triggerValue;
-			}
-			break;
-		}
+		skillSetNextTrigger(card);
 	}
 
 	for (;;) {
@@ -180,6 +172,7 @@ int Live::simulate(int id, uint64_t seed) {
 			&& (skillEvents.empty() || !(skillEvents.top().time < hits[hitIndex].time))
 			) {
 			const auto & hit = hits[hitIndex];
+			time = hit.time;
 			bool isPerfect = hit.isPerfect || judgeCount;
 			auto & note = notes[hit.noteIndex];
 			if (hit.isHoldBegin) {
@@ -197,19 +190,15 @@ int Live::simulate(int id, uint64_t seed) {
 			++hitIndex;
 		} else if (!skillEvents.empty()) {
 			auto event = skillEvents.top();
-			auto & card = cards[event.id & SkillIdFlags::SkillIndexMask];
-			const auto & skill = card.skill;
-			const auto & level = card.skillLevel();
 			skillEvents.pop();
-			if ((int)rng(100) < level.activationRate) {
-				score += level.effectValue;
-			}
-			switch ((Skill::Trigger)skill.trigger) {
-			case Skill::Trigger::NotesCount:
-				if (card.nextTrigger <= noteNum) {
-					skillEvents.push({ notes[card.nextTrigger - 1].showTime, SkillOn | card.skillId });
-					card.nextTrigger += level.triggerValue;
-				}
+			time = event.time;
+			auto & card = cards[event.id & SkillIndexMask];
+			switch (event.id & SkillEventMask) {
+			case SkillOn:
+				skillTrigger(card);
+				break;
+			case SkillOff:
+				skillOff(card);
 				break;
 			}
 		} else {
@@ -222,19 +211,22 @@ int Live::simulate(int id, uint64_t seed) {
 
 
 void Live::initSimulation() {
+	time = 0;
+	hitIndex = 0;
 	score = 0;
 	combo = 0;
 	perfect = 0;
 	starPerfect = 0;
 	judgeCount = 0;
-	hitIndex = 0;
 	itComboMul = COMBO_MUL.cbegin();
 	assert(skillEvents.empty());
 	assert(scoreTriggers.empty());
 	assert(perfectTriggers.empty());
 	assert(starPerfectTriggers.empty());
-	shuffleSkills();
 	initSkills();
+	if (true) {
+		shuffleSkills();
+	}
 }
 
 
@@ -365,4 +357,50 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 	// L8_117 = L19_19.SkillEffect.ScoreBonus.apply(L9_118)
 	// L9_118 = L7_116 * bonus_score_rate
 	return ceil(noteScore);
+}
+
+
+void Live::skillTrigger(LiveCard & card) {
+	const auto & level = card.skillLevel();
+	if ((int)rng(100) < level.activationRate) {
+		skillOn(card);
+	}
+	skillSetNextTrigger(card);
+}
+
+
+void Live::skillOn(LiveCard & card) {
+	const auto & skill = card.skill;
+	const auto & level = card.skillLevel();
+
+	score += level.effectValue;
+
+	switch (skill.discharge) {
+	case Skill::Discharge::Immediate:
+		skillSetNextTrigger(card);
+		break;
+	case Skill::Discharge::Duration:
+		skillEvents.push({ time + level.dischargeTime , SkillOff | card.skillId });
+		break;
+	}
+}
+
+
+void Live::skillOff(LiveCard & card) {
+	skillSetNextTrigger(card);
+}
+
+
+void Live::skillSetNextTrigger(LiveCard & card) {
+	const auto & skill = card.skill;
+	const auto & level = card.skillLevel();
+
+	switch ((Skill::Trigger)skill.trigger) {
+	case Skill::Trigger::NotesCount:
+		if (card.nextTrigger <= noteNum) {
+			skillEvents.push({ notes[card.nextTrigger - 1].showTime, SkillOn | card.skillId });
+			card.nextTrigger += level.triggerValue;
+		}
+		break;
+	}
 }
