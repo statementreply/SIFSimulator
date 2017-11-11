@@ -117,9 +117,9 @@ int Utf8Main(int argc, char * argv[]) {
 
 	string json;
 	if (argc >= 2) {
-		json = ReadAllText(ifstream(ToNative(argv[1]), ios_base::binary));
+		json = readAllText(ifstream(ToNative(argv[1]), ios_base::binary));
 	} else {
-		json = ReadAllText(cin);
+		json = readAllText(cin);
 	}
 	Live live;
 	if (!live.prepare(json.c_str())) {

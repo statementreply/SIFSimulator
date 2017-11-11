@@ -39,7 +39,7 @@ bool Live::prepare(const char * json) {
 		}
 		loadSettings(doc);
 		loadUnit(doc);
-		loadChart(doc);
+		loadCharts(doc);
 	} catch (const runtime_error &) {
 		return false;
 	}
@@ -78,6 +78,7 @@ void Live::loadUnit(const rapidjson::Value & jsonObj) {
 		card.attribute = 1;
 		card.status = 0;
 		skill.valid = false;
+		card.skillId = (unsigned)i << SKILL_ORDER_SHIFT | (unsigned)i;
 	}
 
 	auto & card = cards[0];
@@ -94,12 +95,12 @@ void Live::loadUnit(const rapidjson::Value & jsonObj) {
 	level.dischargeTime = 0;
 	level.triggerValue = 22;
 	level.activationRate = 50;
-	card.skillId = SkillIdFlags::ActiveSkill | (0 << SKILL_ORDER_SHIFT) | 0;
+	card.skillId |= SkillIdFlags::ActiveSkill;
 	card.currentSkillLevel = skill.level;
 }
 
 
-void Live::loadChart(const rapidjson::Value & jsonObj) {
+void Live::loadCharts(const rapidjson::Value & jsonObj) {
 	memberCategory = 1;
 	noteNum = jsonObj.Size();
 	notes.resize(noteNum);
@@ -124,6 +125,11 @@ void Live::loadChart(const rapidjson::Value & jsonObj) {
 		sort(notes.begin(), notes.end(), compareTime);
 	}
 
+	processCharts();
+}
+
+
+void Live::processCharts() {
 	hits.clear();
 	for (int i = 0; i < noteNum; i++) {
 		const auto & note = notes[i];
@@ -223,15 +229,23 @@ void Live::initSimulation() {
 	judgeCount = 0;
 	hitIndex = 0;
 	itComboMul = COMBO_MUL.cbegin();
-	if (!skillEvents.empty()) {
-		skillEvents = MinPriorityQueue<SkillEvent>();
+	assert(skillEvents.empty());
+	assert(scoreTriggers.empty());
+	assert(perfectTriggers.empty());
+	assert(starPerfectTriggers.empty());
+	shuffleSkills();
+	initSkills();
+}
+
+
+void Live::shuffleSkills() {
+	for (int i = cardNum; i > 1; --i) {
+		swapBits(cards[i - 1].skillId, cards[rng(i)].skillId, (unsigned)SkillOrderMask);
 	}
-	//shuffle(skillIdMap.begin(), skillIdMap.end(), rng);
-	//if (skillNum > 0) {
-	//	for (int i = skillNum - 1; i > 0; --i) {
-	//		swap(skillIdMap[i], skillIdMap[rng(i + 1)]);
-	//	}
-	//}
+}
+
+
+void Live::initSkills() {
 	for (auto && card : cards) {
 		const auto & skill = card.skill;
 		if (!skill.valid) {

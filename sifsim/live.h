@@ -36,9 +36,12 @@ private:
 
 	void loadSettings(const rapidjson::Value & jsonObj);
 	void loadUnit(const rapidjson::Value & jsonObj);
-	void loadChart(const rapidjson::Value & jsonObj);
+	void loadCharts(const rapidjson::Value & jsonObj);
+	void processCharts();
 
 	void initSimulation();
+	void shuffleSkills();
+	void initSkills();
 
 	void simulateHitError();
 	double computeScore(const LiveNote & note, bool isPerfect) const;
@@ -98,6 +101,15 @@ private:
 		}
 	};
 
+	struct SkillTrigger {
+		int value;
+		unsigned id;
+
+		bool operator <(const SkillTrigger & b) const {
+			return std::tie(value, id) < std::tie(b.value, b.id);
+		}
+	};
+
 private:
 	pcg32 rng;
 
@@ -135,4 +147,7 @@ private:
 	std::vector<Hit> hits;
 	std::vector<double> combos;
 	MinPriorityQueue<SkillEvent> skillEvents;
+	MinPriorityQueue<SkillTrigger> scoreTriggers;
+	MinPriorityQueue<SkillTrigger> perfectTriggers;
+	MinPriorityQueue<SkillTrigger> starPerfectTriggers;
 };

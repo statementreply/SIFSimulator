@@ -8,15 +8,15 @@
 
 
 template <class CharT, class Traits>
-auto ReadAllText(std::basic_istream<CharT, Traits> & ist) {
+auto readAllText(std::basic_istream<CharT, Traits> & ist) {
 	return std::basic_string<CharT, Traits>(
 		std::istream_iterator<CharT, CharT, Traits>(ist),
 		std::istream_iterator<CharT, CharT, Traits>());
 }
 
 template <class CharT, class Traits>
-auto ReadAllText(std::basic_istream<CharT, Traits> && ist) {
-	return ReadAllText(ist);
+auto readAllText(std::basic_istream<CharT, Traits> && ist) {
+	return readAllText(ist);
 }
 
 
@@ -57,7 +57,7 @@ private:
 };
 
 template <class Compare>
-ReverseComparer<Compare> MakeReverseComparer(Compare comp) {
+ReverseComparer<Compare> makeReverseComparer(Compare comp) {
 	return ReverseComparer<Compare>(comp);
 }
 
@@ -84,4 +84,12 @@ void insertion_sort(BidirIt first, BidirIt last, Compare comp) {
 template <class BidirIt>
 void insertion_sort(BidirIt first, BidirIt last) {
 	insertion_sort(first, last, std::less<>());
+}
+
+
+template <class IntType>
+void swapBits(IntType & a, IntType & b, IntType mask) {
+	IntType t = (a ^ b) & mask;
+	a ^= t;
+	b ^= t;
 }
