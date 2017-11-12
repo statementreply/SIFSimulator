@@ -54,6 +54,7 @@ private:
 	void skillOn(LiveCard & card);
 	void skillOff(LiveCard & card);
 	void skillSetNextTrigger(LiveCard & card);
+	void skillSetNextTriggerOnNextFrame(LiveCard & card);
 	void updateChain(const LiveCard & card);
 	void updateLastSkill(const LiveCard & card);
 

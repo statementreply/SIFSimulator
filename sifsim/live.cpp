@@ -231,6 +231,10 @@ int Live::simulate(int id, uint64_t seed) {
 				case SkillOn:
 					skillTrigger(card);
 					break;
+				case SkillNextTrigger:
+					card.isActive = false;
+					skillSetNextTrigger(card);
+					break;
 				case SkillOff:
 					skillOff(card);
 					break;
@@ -305,7 +309,7 @@ void Live::initSkillsForNextSong() {
 			continue;
 		}
 		assert(card.currentSkillLevel == skill.level);
-		assert(card.isActive == false);
+		assert(!card.isActive);
 		switch (skill.trigger) {
 		case Skill::Trigger::Time:
 			card.nextTrigger = 0;
@@ -473,7 +477,7 @@ void Live::skillTrigger(LiveCard & card) {
 	if ((int)rng(100) < level.activationRate) {
 		skillOn(card);
 	} else {
-		skillSetNextTrigger(card);
+		skillSetNextTriggerOnNextFrame(card);
 	}
 }
 
@@ -518,19 +522,7 @@ void Live::skillOn(LiveCard & card) {
 	switch (skill.discharge) {
 	case Skill::Discharge::Immediate:
 	default:
-#if FORCE_SKILL_FRAME_DELAY
-		if (skill.trigger != Skill::Trigger::Time)
-#elif FORCE_SCORE_TRIGGERED_SKILL_FRAME_DELAY
-		if (skill.trigger == Skill::Trigger::Score)
-#else
-		if (false)
-#endif
-		{
-			card.isActive = true;
-			skillEvents.emplace(time + FRAME_TIME, SkillOff | card.skillId);
-		} else {
-			skillSetNextTrigger(card);
-		}
+		skillSetNextTriggerOnNextFrame(card);
 		break;
 	case Skill::Discharge::Duration:
 		card.isActive = true;
@@ -580,10 +572,10 @@ void Live::skillOff(LiveCard & card) {
 
 
 void Live::skillSetNextTrigger(LiveCard & card) {
+	assert(!card.isActive);
 	const auto & skill = card.skill;
 	const auto & level = card.skillLevel();
-
-	switch ((Skill::Trigger)skill.trigger) {
+	switch (skill.trigger) {
 	case Skill::Trigger::Time:
 	{
 		const auto & chart = charts[chartIndex];
@@ -684,6 +676,25 @@ void Live::skillSetNextTrigger(LiveCard & card) {
 		}
 		break;
 	}
+	}
+}
+
+
+void Live::skillSetNextTriggerOnNextFrame(LiveCard & card) {
+	const auto & skill = card.skill;
+#if FORCE_SKILL_FRAME_DELAY
+	bool needDelay = (skill.trigger != Skill::Trigger::Time);
+#elif FORCE_SCORE_TRIGGERED_SKILL_FRAME_DELAY
+	bool needDelay = (skill.trigger == Skill::Trigger::Score);
+#else
+	bool needDelay = false;
+#endif
+	if (needDelay)
+	{
+		card.isActive = true;
+		skillEvents.emplace(time + FRAME_TIME, SkillNextTrigger | card.skillId);
+	} else {
+		skillSetNextTrigger(card);
 	}
 }
 
