@@ -11,16 +11,6 @@
 
 using namespace std;
 
-#if USE_FAST_RANDOM
-#include "fastrandom.h"
-using namespace FastRandom;
-#else
-#include <random>
-using BernoulliDistribution = std::bernoulli_distribution;
-template <class RealType = double>
-using NormalDistribution = std::normal_distribution<RealType>;
-#endif
-
 
 const auto compareTime = [](auto && a, auto && b) {
 	return a.time < b.time;
@@ -47,15 +37,27 @@ void Live::loadSettings(const rapidjson::Value & jsonObj) {
 	constexpr double SQRT1_2 = 0.707106781186547524401;
 	hiSpeed = 0.7;
 	judgeOffset = 0.;
-	sigmaHit = 0.015;
-	sigmaHoldBegin = 0.015;
-	sigmaHoldEnd = 0.018;
-	sigmaSlide = 0.030;
-	gRateHit = erfc(PERFECT_WINDOW / sigmaHit * SQRT1_2);
-	gRateHoldBegin = erfc(PERFECT_WINDOW / sigmaHoldBegin * SQRT1_2);
-	gRateHoldEnd = erfc(PERFECT_WINDOW / sigmaHoldEnd * SQRT1_2);
-	gRateSlide = erfc(GREAT_WINDOW / sigmaSlide * SQRT1_2);
-	gRateSlideHoldEnd = erfc(GREAT_WINDOW / sigmaHoldEnd * SQRT1_2);
+	double sigmaHit = 0.015;
+	double sigmaHoldBegin = 0.015;
+	double sigmaHoldEnd = 0.018;
+	double sigmaSlide = 0.030;
+#if SIMULATE_HIT_TIMING
+	eHit.param(NormalDistribution<>::param_type(0, sigmaHit));
+	eHoldBegin.param(NormalDistribution<>::param_type(0, sigmaHoldBegin));
+	eHoldEnd.param(NormalDistribution<>::param_type(0, sigmaHoldEnd));
+	eSlide.param(NormalDistribution<>::param_type(0, sigmaSlide));
+#else
+	double gRateHit = erfc(PERFECT_WINDOW / sigmaHit * SQRT1_2);
+	double gRateHoldBegin = erfc(PERFECT_WINDOW / sigmaHoldBegin * SQRT1_2);
+	double gRateHoldEnd = erfc(PERFECT_WINDOW / sigmaHoldEnd * SQRT1_2);
+	double gRateSlide = erfc(GREAT_WINDOW / sigmaSlide * SQRT1_2);
+	double gRateSlideHoldEnd = erfc(GREAT_WINDOW / sigmaHoldEnd * SQRT1_2);
+	gHit.param(BernoulliDistribution::param_type(gRateHit));
+	gHoldBegin.param(BernoulliDistribution::param_type(gRateHoldBegin));
+	gHoldEnd.param(BernoulliDistribution::param_type(gRateHoldEnd));
+	gSlide.param(BernoulliDistribution::param_type(gRateSlide));
+	gSlideHoldEnd.param(BernoulliDistribution::param_type(gRateSlideHoldEnd));
+#endif
 }
 
 
@@ -100,7 +102,7 @@ void Live::loadUnit(const rapidjson::Value & jsonObj) {
 
 
 void Live::loadCharts(const rapidjson::Value & jsonObj) {
-	chartNum = 3;
+	chartNum = 1;
 	charts.resize(chartNum);
 	int totalNotes = 0;
 	memberCategory = 1;
@@ -330,10 +332,6 @@ void Live::initSkillsForNextSong() {
 
 void Live::simulateHitError() {
 #if SIMULATE_HIT_TIMING
-	NormalDistribution<> eHit(0, sigmaHit);
-	NormalDistribution<> eHoldBegin(0, sigmaHoldBegin);
-	NormalDistribution<> eHoldEnd(0, sigmaHoldEnd);
-	NormalDistribution<> eSlide(0, sigmaSlide);
 	for (int k = 0; k < chartNum; k++) {
 		auto & notes = charts[k].notes;
 		auto & hits = chartHits[k];
@@ -385,11 +383,6 @@ void Live::simulateHitError() {
 #endif
 	}
 #else
-	BernoulliDistribution gHit(gRateHit);
-	BernoulliDistribution gHoldBegin(gRateHoldBegin);
-	BernoulliDistribution gHoldEnd(gRateHoldEnd);
-	BernoulliDistribution gSlide(gRateSlide);
-	BernoulliDistribution gSlideHoldEnd(gRateSlideHoldEnd);
 	for (int k = 0; k < chartNum; k++) {
 		auto & notes = charts[k].notes;
 		auto & hits = chartHits[k];

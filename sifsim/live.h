@@ -1,4 +1,5 @@
 #pragma once
+#include "configure.h"
 
 #include <vector>
 #include <array>
@@ -10,6 +11,18 @@
 #include "note.h"
 #include "card.h"
 #include "util.h"
+
+#if USE_FAST_RANDOM
+#include "fastrandom.h"
+using FastRandom::BernoulliDistribution;
+using FastRandom::NormalDistribution;
+#else
+#include <random>
+using BernoulliDistribution = std::bernoulli_distribution;
+template <class RealType = double>
+using NormalDistribution = std::normal_distribution<RealType>;
+#endif
+
 
 class Live {
 public:
@@ -145,15 +158,18 @@ private:
 	// Settings
 	double hiSpeed;
 	double judgeOffset;
-	double sigmaHit;
-	double sigmaHoldBegin;
-	double sigmaHoldEnd;
-	double sigmaSlide;
-	double gRateHit;
-	double gRateHoldBegin;
-	double gRateHoldEnd;
-	double gRateSlide;
-	double gRateSlideHoldEnd;
+#if SIMULATE_HIT_TIMING
+	NormalDistribution<> eHit;
+	NormalDistribution<> eHoldBegin;
+	NormalDistribution<> eHoldEnd;
+	NormalDistribution<> eSlide;
+#else
+	BernoulliDistribution gHit;
+	BernoulliDistribution gHoldBegin;
+	BernoulliDistribution gHoldEnd;
+	BernoulliDistribution gSlide;
+	BernoulliDistribution gSlideHoldEnd;
+#endif
 
 	// Unit
 	double status;
