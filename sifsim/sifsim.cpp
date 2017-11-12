@@ -132,7 +132,7 @@ int Utf8Main(int argc, char * argv[]) {
 #if NDEBUG
 	constexpr int ITERS = 100000;
 #else
-	constexpr int ITERS = 1000;
+	constexpr int ITERS = 100;
 #endif
 	results.reserve(ITERS);
 	clock_t t0 = clock();
@@ -140,11 +140,11 @@ int Utf8Main(int argc, char * argv[]) {
 		results.push_back(live.simulate(i, seed));
 		if (!(~i & 0xfff)) {
 			clock_t t1 = clock();
-			cout << fixed << setprecision(3) << ((double)(t1 - t0) / CLOCKS_PER_SEC) << '\n';
+			cerr << fixed << setprecision(3) << ((double)(t1 - t0) / CLOCKS_PER_SEC) << endl;
 			t0 = t1;
 		}
 	}
-	cout << "[ Done ]\n";
+	cerr << "[ Done ]" << endl;
 	double avg = accumulate(results.begin(), results.end(), 0.) / results.size();
 	double sd = sqrt(accumulate(results.begin(), results.end(), 0., [avg](auto && s, auto && x) {
 		return s + (x - avg) * (x - avg);

@@ -101,3 +101,17 @@ void swapBits(IntType & a, IntType & b, IntType mask) {
 	a ^= t;
 	b ^= t;
 }
+
+
+#if USE_SSE_4_1_ROUND
+#include <smmintrin.h>
+inline double FloorSse4_1(double x) {
+	__m128d m = _mm_set_sd(x);
+	return _mm_cvtsd_f64(_mm_floor_sd(m, m));
+}
+
+inline double CeilSse4_1(double x) {
+	__m128d m = _mm_set_sd(x);
+	return _mm_cvtsd_f64(_mm_ceil_sd(m, m));
+}
+#endif

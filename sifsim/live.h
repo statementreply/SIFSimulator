@@ -41,10 +41,13 @@ private:
 	void processCharts();
 
 	void initSimulation();
+	void initNextSong();
 	void shuffleSkills();
 	void initSkills();
+	void initSkillsForNextSong();
 
 	void simulateHitError();
+	void startSkillTrigger();
 	double computeScore(const LiveNote & note, bool isPerfect) const;
 
 	void skillTrigger(LiveCard & card);
@@ -52,6 +55,7 @@ private:
 	void skillOff(LiveCard & card);
 	void skillSetNextTrigger(LiveCard & card);
 	void updateChain(const LiveCard & card);
+	void updateLastSkill(const LiveCard & card);
 
 private:
 	struct Hit {
@@ -90,13 +94,22 @@ private:
 		}
 	};
 
+	struct LiveChart {
+		int noteNum;
+		int beginNote;
+		int endNote;
+		double lastNoteShowTime;
+		std::vector<LiveNote> notes;
+	};
+
 	enum SkillIdFlags : unsigned {
 		SkillEventMask      = 0xf00000,
-		SkillOff            = 0x000000,
-		SkillOn             = 0x100000,
+		SkillOff            = 0x100000,
+		SkillNextTrigger    = 0x200000,
+		SkillOn             = 0x300000,
 		SkillPriorityMask   = 0xf0000,
-		ActiveSkill         = 0x00000,
-		PassiveSkill        = 0x10000,
+		ActiveSkill         = 0x10000,
+		PassiveSkill        = 0x20000,
 		SkillOrderMask      = 0xff00,
 		SkillIndexMask      = 0xff,
 	};
@@ -106,15 +119,20 @@ private:
 		double time;
 		unsigned id;
 
+		SkillEvent() = default;
+		SkillEvent(double time, unsigned id) : time(time), id(id) {}
 		bool operator <(const SkillEvent & b) const {
 			return std::tie(time, id) < std::tie(b.time, b.id);
 		}
 	};
 
+	template <class T = int>
 	struct SkillTrigger {
-		int value;
+		T value;
 		unsigned id;
 
+		SkillTrigger() = default;
+		SkillTrigger(T value, unsigned id) :value(value), id(id) {}
 		bool operator <(const SkillTrigger & b) const {
 			return std::tie(value, id) < std::tie(b.value, b.id);
 		}
@@ -142,26 +160,25 @@ private:
 	std::vector<LiveCard> cards;
 
 	// Chart
+	int chartNum;
+	std::vector<LiveChart> charts;
 	int memberCategory;
-	int noteNum;
-	double lastNoteShowTime;
-	std::vector<LiveNote> notes;
 
 	// Simulation
+	int chartIndex;
 	double time;
 	size_t hitIndex;
 	double score;
-	bool skillEnabled;
 	int combo;
 	int perfect;
 	int starPerfect;
 	int judgeCount;
 	decltype(COMBO_MUL)::const_iterator itComboMul;
-	std::vector<Hit> hits;
+	std::vector<std::vector<Hit>> chartHits;
 	std::vector<double> combos;
 	MinPriorityQueue<SkillEvent> skillEvents;
-	MinPriorityQueue<SkillTrigger> scoreTriggers;
-	MinPriorityQueue<SkillTrigger> perfectTriggers;
-	MinPriorityQueue<SkillTrigger> starPerfectTriggers;
+	MinPriorityQueue<SkillTrigger<double>> scoreTriggers;
+	MinPriorityQueue<SkillTrigger<>> perfectTriggers;
+	MinPriorityQueue<SkillTrigger<>> starPerfectTriggers;
 	std::vector<int> chainTriggers;
 };
