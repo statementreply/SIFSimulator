@@ -62,7 +62,7 @@ double GetJsonMemberDouble(const RapidJsonValue & obj, const char * name) {
 		throw std::runtime_error(std::string("JSON: Member not found"));
 	}
 	auto && member = obj[name];
-	if (!member.IsDouble()) {
+	if (!member.IsNumber()) {
 		throw std::runtime_error(std::string("JSON: Invalid type"));
 	}
 	return member.GetDouble();
