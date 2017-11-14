@@ -62,34 +62,64 @@ void Live::loadSettings(const rapidjson::Value & jsonObj) {
 
 
 void Live::loadUnit(const rapidjson::Value & jsonObj) {
-	status = 57033;
+	status = 80461;
 	cardNum = 9;
 	cards.clear();
 	cards.resize(cardNum);
 	for (int i = 0; i < cardNum; i++) {
 		auto & card = cards[i];
 		auto & skill = card.skill;
-		card.type = 107;
-		card.category = 2;
-		card.attribute = 1;
-		card.status = 0;
-		skill.valid = true;
-		card.skillId = (unsigned)i << SKILL_ORDER_SHIFT | (unsigned)i;
-		skill.effect = Skill::Effect::ScorePlus;
-		skill.discharge = Skill::Discharge::Immediate;
-		skill.trigger = Skill::Trigger::NotesCount;
-		card.skillId |= ActiveSkill;
-		skill.maxLevel = 8;
-		skill.levels.resize(skill.maxLevel);
-		skill.level = 8;
-		skill.triggerTypeNum = 0;
-		auto & level = skill.levels[skill.level - 1];
-		level.effectValue = 3500;
-		level.dischargeTime = 0;
-		level.triggerValue = 22;
-		level.activationRate = 50;
-		card.triggerStatus.clear();
-		card.triggerStatus.resize(skill.triggerTypeNum);
+		switch (i) {
+		case 0:
+		//case 8:
+		case -1:
+		{
+			card.type = 105;
+			card.category = 2;
+			card.attribute = 2;
+			card.status = 0;
+			skill.valid = true;
+			skill.effect = Skill::Effect::Mimic;
+			skill.discharge = Skill::Discharge::Immediate;
+			skill.trigger = Skill::Trigger::NotesCount;
+			card.skillId = ActiveSkill;
+			skill.maxLevel = 8;
+			skill.levels.resize(skill.maxLevel);
+			skill.level = 8;
+			skill.chainTypeNum = 0;
+			auto & level = skill.levels[skill.level - 1];
+			level.effectValue = 0;
+			level.dischargeTime = 0;
+			level.triggerValue = 20;
+			level.activationRate = 43;
+			break;
+		}
+		default:
+		{
+			card.type = 107;
+			card.category = 2;
+			card.attribute = 2;
+			card.status = 0;
+			skill.valid = true;
+			skill.effect = Skill::Effect::ScorePlus;
+			skill.discharge = Skill::Discharge::Immediate;
+			skill.trigger = Skill::Trigger::ComboCount;
+			card.skillId = ActiveSkill;
+			skill.maxLevel = 8;
+			skill.levels.resize(skill.maxLevel);
+			skill.level = 8;
+			skill.chainTypeNum = 0;
+			auto & level = skill.levels[skill.level - 1];
+			level.effectValue = 3260 * 2 / 2;
+			level.dischargeTime = 0;
+			level.triggerValue = 25;
+			level.activationRate = 61;
+			break;
+		}
+		}
+		card.skillId |= (unsigned)i << SKILL_ORDER_SHIFT | (unsigned)i;
+		card.chainStatus.clear();
+		card.chainStatus.resize(skill.chainTypeNum);
 	}
 	/*
 	cards[0].skill.trigger = Skill::Trigger::Score;
@@ -117,7 +147,10 @@ void Live::loadCharts(const rapidjson::Value & jsonObj) {
 			auto && noteObj = GetJsonMemberObject(jsonObj, i);
 			auto & note = chart.notes[i];
 			int p = GetJsonMemberInt(noteObj, "position");
-			note.position = 9 - p;
+			if (p <= 0 || p > cardNum) {
+				throw runtime_error("Invalid note position");
+			}
+			note.position = cardNum - p;
 			note.attribute = GetJsonMemberInt(noteObj, "notes_attribute");
 			note.effect((Note::Effect)GetJsonMemberInt(noteObj, "effect"));
 			double t = GetJsonMemberDouble(noteObj, "timing_sec");
@@ -298,9 +331,10 @@ void Live::initSkills() {
 		card.currentSkillLevel = skill.level;
 		card.isActive = false;
 		card.nextTrigger = 0;
-		card.remainingTriggerType = skill.triggerTypeNum;
-		fill(card.triggerStatus.begin(), card.triggerStatus.end(), 1);
+		card.remainingChainTypeNum = skill.chainTypeNum;
+		fill(card.chainStatus.begin(), card.chainStatus.end(), 1);
 	}
+	initSkillsForEverySong();
 }
 
 
@@ -322,11 +356,30 @@ void Live::initSkillsForNextSong() {
 			skillSetNextTrigger(card);
 			break;
 		case Skill::Trigger::Chain:
-			card.remainingTriggerType = skill.triggerTypeNum;
-			fill(card.triggerStatus.begin(), card.triggerStatus.end(), 1);
+			card.remainingChainTypeNum = skill.chainTypeNum;
+			fill(card.chainStatus.begin(), card.chainStatus.end(), 1);
 			break;
 		}
 	}
+	initSkillsForEverySong();
+}
+
+
+void Live::initSkillsForEverySong() {
+	for (auto && card : cards) {
+		const auto & skill = card.skill;
+		if (!skill.valid) {
+			continue;
+		}
+		if (skill.effect == Skill::Effect::Mimic) {
+			card.mimicSkillIndex = -1;
+			card.mimicSkillLevel = 0;
+		}
+	}
+	mimicStack.pushTime = -1;
+	mimicStack.popTime = 0;
+	mimicStack.skillId = 0;
+	mimicStack.skillLevel = 0;
 }
 
 
@@ -465,19 +518,27 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 
 
 void Live::skillTrigger(LiveCard & card) {
-	assert(!card.isActive);
+	auto & skill = card.skill;
+	assert(skill.valid && !card.isActive);
+	bool isMimic = skill.effect == Skill::Effect::Mimic;
+	if (isMimic) {
+		if (!getMimic(card)) {
+			skillSetNextTriggerOnNextFrame(card);
+			return;
+		}
+	}
 	const auto & level = card.skillLevel();
 	if ((int)rng(100) < level.activationRate) {
-		skillOn(card);
+		skillOn(card, isMimic);
 	} else {
 		skillSetNextTriggerOnNextFrame(card);
 	}
 }
 
 
-void Live::skillOn(LiveCard & card) {
-	const auto & skill = card.skill;
-	const auto & level = card.skillLevel();
+void Live::skillOn(LiveCard & card, bool isMimic) {
+	const auto & skill = isMimic ? cards[card.mimicSkillIndex].skill : card.skill;
+	const auto & level = isMimic ? skill.levels[card.mimicSkillLevel - 1] : card.skillLevel();
 
 	switch (skill.effect) {
 	case Skill::Effect::GreatToPerfect:
@@ -495,6 +556,7 @@ void Live::skillOn(LiveCard & card) {
 	case Skill::Effect::SkillRateUp:
 		break;
 	case Skill::Effect::Mimic:
+		assert(false);
 		break;
 	case Skill::Effect::PerfectBonusRatio:
 		break;
@@ -524,13 +586,14 @@ void Live::skillOn(LiveCard & card) {
 	}
 
 	updateChain(card);
-	updateLastSkill(card);
+	updateMimic(card);
 }
 
 
 void Live::skillOff(LiveCard & card) {
-	assert(card.isActive);
-	const auto & skill = card.skill;
+	assert(card.skill.valid && card.isActive);
+	bool isMimic = card.skill.effect == Skill::Effect::Mimic;
+	const auto & skill = isMimic ? cards[card.mimicSkillIndex].skill : card.skill;
 
 	switch (skill.effect) {
 	case Skill::Effect::GreatToPerfect:
@@ -664,7 +727,7 @@ void Live::skillSetNextTrigger(LiveCard & card) {
 	}
 	case Skill::Trigger::Chain:
 	{
-		if (!card.remainingTriggerType) {
+		if (!card.remainingChainTypeNum) {
 			skillEvents.emplace(time, SkillOn | card.skillId);
 		}
 		break;
@@ -692,34 +755,59 @@ void Live::skillSetNextTriggerOnNextFrame(LiveCard & card) {
 }
 
 
-void Live::updateChain(const LiveCard & card) {
-	const auto & skill = card.skill;
-	if (skill.trigger == Skill::Trigger::Chain) {
+void Live::updateChain(const LiveCard & otherCard) {
+	const auto & otherSkill = otherCard.skill;
+	assert(otherSkill.valid);
+	if (otherSkill.trigger == Skill::Trigger::Chain) {
 		return;
 	}
 	for (auto && i : chainTriggers) {
 		auto & chainCard = cards[i];
-		if (!chainCard.remainingTriggerType) {
+		if (!chainCard.remainingChainTypeNum) {
 			continue;
 		}
 		const auto & chainSkill = chainCard.skill;
-		auto type = find_if(chainSkill.triggerTargets.begin(), chainSkill.triggerTargets.end(),
-			[&card](auto && a) {
-			return a.first == card.type;
+		auto type = find_if(chainSkill.chainTargets.begin(), chainSkill.chainTargets.end(),
+			[&otherCard](auto && a) {
+			return a.first == otherCard.type;
 		});
-		if (type == chainSkill.triggerTargets.end()) {
+		if (type == chainSkill.chainTargets.end()) {
 			continue;
 		}
 		const auto & index = type->second;
-		chainCard.remainingTriggerType -= chainCard.triggerStatus[index];
-		chainCard.triggerStatus[index] = 0;
-		if (!chainCard.remainingTriggerType && !chainCard.isActive) {
+		chainCard.remainingChainTypeNum -= chainCard.chainStatus[index];
+		chainCard.chainStatus[index] = 0;
+		if (!chainCard.remainingChainTypeNum && !chainCard.isActive) {
 			skillEvents.emplace(time, SkillOn | chainCard.skillId);
 		}
 	}
 }
 
 
-void Live::updateLastSkill(const LiveCard & card) {
-	// Update last skill
+void Live::updateMimic(const LiveCard & otherCard) {
+	const auto & otherSkill = otherCard.skill;
+	assert(otherSkill.valid);
+	if (otherSkill.effect == Skill::Effect::Mimic) {
+		return;
+	}
+	if (time > mimicStack.pushTime) {
+		mimicStack.pushTime = time;
+		mimicStack.skillId = otherCard.skillId;
+		mimicStack.skillLevel = otherCard.currentSkillLevel;
+	}
+}
+
+
+bool Live::getMimic(LiveCard & card) {
+	assert(card.skill.valid && card.skill.effect == Skill::Effect::Mimic);
+	assert(time >= mimicStack.pushTime && time >= mimicStack.popTime);
+	if (mimicStack.popTime > mimicStack.pushTime) {
+		card.mimicSkillIndex = -1;
+		card.mimicSkillLevel = 0;
+		return false;
+	}
+	mimicStack.popTime = time;
+	card.mimicSkillIndex = mimicStack.skillId & SkillIndexMask;
+	card.mimicSkillLevel = mimicStack.skillLevel;
+	return true;
 }

@@ -58,18 +58,20 @@ private:
 	void shuffleSkills();
 	void initSkills();
 	void initSkillsForNextSong();
+	void initSkillsForEverySong();
 
 	void simulateHitError();
 	void startSkillTrigger();
 	double computeScore(const LiveNote & note, bool isPerfect) const;
 
 	void skillTrigger(LiveCard & card);
-	void skillOn(LiveCard & card);
+	void skillOn(LiveCard & card, bool isMimic);
 	void skillOff(LiveCard & card);
 	void skillSetNextTrigger(LiveCard & card);
 	void skillSetNextTriggerOnNextFrame(LiveCard & card);
-	void updateChain(const LiveCard & card);
-	void updateLastSkill(const LiveCard & card);
+	void updateChain(const LiveCard & otherCard);
+	void updateMimic(const LiveCard & otherCard);
+	bool getMimic(LiveCard & card);
 
 private:
 	struct Hit {
@@ -100,8 +102,10 @@ private:
 		int currentSkillLevel;
 		bool isActive;
 		int nextTrigger;
-		int remainingTriggerType;
-		std::vector<int> triggerStatus;
+		int remainingChainTypeNum;
+		std::vector<int> chainStatus;
+		int mimicSkillIndex;
+		int mimicSkillLevel;
 
 		const Skill::LevelData & skillLevel() const {
 			return skill.levels[currentSkillLevel - 1];
@@ -152,6 +156,13 @@ private:
 		}
 	};
 
+	struct MimicStack {
+		double pushTime;
+		double popTime;
+		unsigned skillId;
+		int skillLevel;
+	};
+
 private:
 	pcg32 rng;
 
@@ -198,4 +209,5 @@ private:
 	MinPriorityQueue<SkillTrigger<>> perfectTriggers;
 	MinPriorityQueue<SkillTrigger<>> starPerfectTriggers;
 	std::vector<int> chainTriggers;
+	MimicStack mimicStack;
 };

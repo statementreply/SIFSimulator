@@ -16,8 +16,8 @@ struct Skill {
 	int level;
 	int maxLevel;
 	std::vector<int> effectTargets;
-	int triggerTypeNum;
-	std::vector<std::pair<int, int>> triggerTargets;
+	int chainTypeNum;
+	std::vector<std::pair<int, int>> chainTargets;
 
 	struct LevelData {
 		double effectValue;

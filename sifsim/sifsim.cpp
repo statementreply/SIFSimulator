@@ -155,6 +155,11 @@ int Utf8Main(int argc, char * argv[]) {
 	auto m = minmax_element(results.begin(), results.end());
 	cout << "Min\t" << *m.first << endl;
 	cout << "Max\t" << *m.second << endl;
+	if (ITERS >= 10000) {
+		auto nth = results.end() - ITERS / 1000;
+		nth_element(results.begin(), nth, results.end());
+		cout << "0.1%\t" << *nth << endl;
+	}
 	return 0;
 }
 
