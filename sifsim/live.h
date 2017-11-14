@@ -55,6 +55,7 @@ private:
 
 	void initSimulation();
 	void initNextSong();
+	void initForEverySong();
 	void shuffleSkills();
 	void initSkills();
 	void initSkillsForNextSong();
@@ -113,10 +114,12 @@ private:
 	};
 
 	struct LiveChart {
+		int memberCategory;
 		int noteNum;
 		int beginNote;
 		int endNote;
 		double lastNoteShowTime;
+		double scoreRate;
 		std::vector<LiveNote> notes;
 	};
 
@@ -191,10 +194,11 @@ private:
 	// Chart
 	int chartNum;
 	std::vector<LiveChart> charts;
-	int memberCategory;
 
 	// Simulation
 	int chartIndex;
+	int chartMemberCategory;
+	double chartScoreRate;
 	double time;
 	size_t hitIndex;
 	double score;

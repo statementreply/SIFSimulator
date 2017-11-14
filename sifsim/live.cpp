@@ -136,9 +136,10 @@ void Live::loadCharts(const rapidjson::Value & jsonObj) {
 	chartNum = 1;
 	charts.resize(chartNum);
 	int totalNotes = 0;
-	memberCategory = 1;
 	for (int k = 0; k < chartNum; k++) {
 		auto & chart = charts[k];
+		chart.memberCategory = 1;
+		chart.scoreRate = 1;
 		chart.noteNum = jsonObj.Size();
 		chart.beginNote = totalNotes;
 		totalNotes += chart.noteNum;
@@ -289,14 +290,13 @@ int Live::simulate(int id, uint64_t seed) {
 
 void Live::initSimulation() {
 	chartIndex = 0;
-	time = 0;
-	hitIndex = 0;
 	score = 0;
 	combo = 0;
 	perfect = 0;
 	starPerfect = 0;
 	judgeCount = 0;
 	itComboMul = COMBO_MUL.cbegin();
+	initForEverySong();
 	assert(skillEvents.empty());
 	assert(scoreTriggers.empty());
 	assert(perfectTriggers.empty());
@@ -309,10 +309,18 @@ void Live::initSimulation() {
 
 
 void Live::initNextSong() {
+	assert(!judgeCount);
+	initForEverySong();
+	initSkillsForNextSong();
+}
+
+
+void Live::initForEverySong() {
+	const auto & chart = charts[chartIndex];
 	time = 0;
 	hitIndex = 0;
-	assert(!judgeCount);
-	initSkillsForNextSong();
+	chartMemberCategory = chart.memberCategory;
+	chartScoreRate = chart.scoreRate;
 }
 
 
@@ -485,7 +493,7 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 	noteScore *= itComboMul->second;
 	// Doesn't judge accuracy?
 	// L7_84 = L12_12.SkillEffect.PerfectBonus.apply(L7_84)
-	if (card.category == memberCategory) {
+	if (card.category == chartMemberCategory) {
 		noteScore *= 1.1;
 	}
 	if (note.isHold) {
@@ -509,7 +517,7 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 	}
 	// L7_84 = L12_12.Combo.applyFixedValueBonus(L7_84)
 	// L8_117 = L19_19.SkillEffect.ScoreBonus.apply(L9_118)
-	// L9_118 = L7_116 * bonus_score_rate
+	noteScore *= chartScoreRate;
 #if USE_SSE_4_1_ROUND
 	return CeilSse4_1(noteScore);
 #else
