@@ -184,6 +184,7 @@ private:
 
 	// Unit
 	double status;
+	double judgeSisStatus;
 	int cardNum;
 	std::vector<LiveCard> cards;
 

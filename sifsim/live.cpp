@@ -63,6 +63,7 @@ void Live::loadSettings(const rapidjson::Value & jsonObj) {
 
 void Live::loadUnit(const rapidjson::Value & jsonObj) {
 	status = 80461;
+	judgeSisStatus = 0;
 	cardNum = 9;
 	cards.clear();
 	cards.resize(cardNum);
@@ -544,7 +545,7 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 	case Skill::Effect::GreatToPerfect:
 	case Skill::Effect::GoodToPerfect:
 		if (!judgeCount) {
-			// Set judge SIS
+			status += judgeSisStatus;
 		}
 		judgeCount++;
 		break;
@@ -601,7 +602,7 @@ void Live::skillOff(LiveCard & card) {
 		assert(judgeCount);
 		--judgeCount;
 		if (!judgeCount) {
-			// Reset judge SIS
+			status -= judgeSisStatus;
 		}
 		break;
 	case Skill::Effect::SkillRateUp:
