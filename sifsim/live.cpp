@@ -14,7 +14,7 @@
 using namespace std;
 
 
-constexpr auto compareTime = [](auto && a, auto && b) {
+constexpr auto compareTime = [](const auto & a, const auto & b) {
 	return a.time < b.time;
 };
 
@@ -173,7 +173,7 @@ void Live::loadCharts(const rapidjson::Value & jsonObj) {
 		chart.endNote = totalNotes;
 		chart.notes.resize(chart.noteNum);
 		for (int i = 0; i < chart.noteNum; i++) {
-			auto && noteObj = GetJsonMemberObject(jsonObj, i);
+			const auto & noteObj = GetJsonMemberObject(jsonObj, i);
 			auto & note = chart.notes[i];
 			int p = GetJsonMemberInt(noteObj, "position");
 			if (p <= 0 || p > cardNum) {
@@ -204,7 +204,7 @@ void Live::loadCharts(const rapidjson::Value & jsonObj) {
 
 void Live::processCharts() {
 	chartHits.resize(chartNum);
-	combos.reserve(accumulate(charts.begin(), charts.end(), 0, [](auto && x, auto && c) {
+	combos.reserve(accumulate(charts.begin(), charts.end(), 0, [](int x, const auto & c) {
 		return x + c.noteNum;
 	}));
 	for (int k = 0; k < chartNum; k++) {
@@ -221,7 +221,7 @@ void Live::processCharts() {
 		}
 		sort(hits.begin(), hits.end(), compareTime);
 
-		for (auto && h : hits) {
+		for (const auto & h : hits) {
 			if (!h.isHoldBegin) {
 				combos.push_back(h.time);
 			}
@@ -362,7 +362,7 @@ void Live::shuffleSkills() {
 
 
 void Live::initSkills() {
-	for (auto && card : cards) {
+	for (auto & card : cards) {
 		const auto & skill = card.skill;
 		if (!skill.valid) {
 			continue;
@@ -378,7 +378,7 @@ void Live::initSkills() {
 
 
 void Live::initSkillsForNextSong() {
-	for (auto && card : cards) {
+	for (auto & card : cards) {
 		const auto & skill = card.skill;
 		if (!skill.valid) {
 			continue;
@@ -408,7 +408,7 @@ void Live::initSkillsForNextSong() {
 
 
 void Live::initSkillsForEverySong() {
-	for (auto && card : cards) {
+	for (auto & card : cards) {
 		const auto & skill = card.skill;
 		if (!skill.valid) {
 			continue;
@@ -430,7 +430,7 @@ void Live::simulateHitError() {
 	for (int k = 0; k < chartNum; k++) {
 		auto & notes = charts[k].notes;
 		auto & hits = chartHits[k];
-		for (auto && hit : hits) {
+		for (auto & hit : hits) {
 			auto & note = notes[hit.noteIndex];
 			double noteTime = hit.isHoldEnd ? note.holdEndTime : note.time;
 			double judgeTime = noteTime + judgeOffset;
@@ -481,7 +481,7 @@ void Live::simulateHitError() {
 	for (int k = 0; k < chartNum; k++) {
 		auto & notes = charts[k].notes;
 		auto & hits = chartHits[k];
-		for (auto && hit : hits) {
+		for (auto & hit : hits) {
 			if (hit.isSlide) {
 				if (hit.isHoldEnd) {
 					hit.isPerfect = !gSlideHoldEnd(rng);
@@ -545,8 +545,9 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 #else
 	noteScore = floor(noteScore / 100.);
 #endif
-	if (isPerfect) { // Only judge hold end accuracy?
-					 // L7_84 = L7_84 + L12_12.SkillEffect.PerfectBonus.sumBonus(A3_80)
+	// Only judge hold end accuracy?
+	if (isPerfect) {
+		// L7_84 = L7_84 + L12_12.SkillEffect.PerfectBonus.sumBonus(A3_80)
 	}
 	// L7_84 = L12_12.Combo.applyFixedValueBonus(L7_84)
 	// L8_117 = L19_19.SkillEffect.ScoreBonus.apply(L9_118)
@@ -819,14 +820,14 @@ void Live::updateChain(const LiveCard & otherCard) {
 	if (otherSkill.trigger == Skill::Trigger::Chain) {
 		return;
 	}
-	for (auto && i : chainTriggers) {
+	for (const auto & i : chainTriggers) {
 		auto & chainCard = cards[i];
 		if (!chainCard.remainingChainTypeNum) {
 			continue;
 		}
 		const auto & chainSkill = chainCard.skill;
 		auto type = find_if(chainSkill.chainTargets.begin(), chainSkill.chainTargets.end(),
-			[&otherCard](auto && a) {
+			[&otherCard](const auto & a) {
 			return a.first == otherCard.type;
 		});
 		if (type == chainSkill.chainTargets.end()) {

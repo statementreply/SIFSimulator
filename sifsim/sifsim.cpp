@@ -70,7 +70,7 @@ int Test(const char * filename) {
 		}
 		//note.comboTime += delta;
 	}
-	sort(notes.begin(), notes.end(), [](auto && a, auto && b) {
+	sort(notes.begin(), notes.end(), [](const auto & a, const auto & b) {
 		return a.comboTime < b.comboTime;
 	});
 	constexpr array<pair<int, double>, 7> ComboMul = { {
@@ -147,7 +147,7 @@ int Utf8Main(int argc, char * argv[]) {
 	}
 	cerr << "[ Done ]" << endl;
 	double avg = accumulate(results.begin(), results.end(), 0.) / results.size();
-	double sd = sqrt(accumulate(results.begin(), results.end(), 0., [avg](auto && s, auto && x) {
+	double sd = sqrt(accumulate(results.begin(), results.end(), 0., [avg](double s, double x) {
 		return s + (x - avg) * (x - avg);
 	}) / (results.size() - 1));
 	cout << fixed << setprecision(0);
