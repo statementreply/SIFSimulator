@@ -21,8 +21,10 @@
 #define USE_FAST_RANDOM 1
 #endif
 
+#if SIMULATE_HIT_TIMING
 #ifndef USE_INSERTION_SORT
 #define USE_INSERTION_SORT 1
+#endif
 #endif
 
 #ifndef USE_SSE_4_1_ROUND

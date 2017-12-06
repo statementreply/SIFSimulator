@@ -133,6 +133,7 @@ int Utf8Main(int argc, char * argv[]) {
 	constexpr int ITERS = 100000;
 #else
 	constexpr int ITERS = 100;
+	seed = 0xcafef00dd15ea5e5ULL;
 #endif
 	results.reserve(ITERS);
 	clock_t t0 = clock();
