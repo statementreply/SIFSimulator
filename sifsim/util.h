@@ -6,6 +6,7 @@
 #include <iterator>
 #include <queue>
 #include <utility>
+#include <type_traits>
 
 
 template <class CharT, class Traits>
@@ -31,25 +32,10 @@ public:
 	ReverseComparer & operator =(ReverseComparer &&) = default;
 
 	explicit ReverseComparer(const Compare & comp) : comp(comp) {}
-	explicit ReverseComparer(Compare && comp) : comp(comp) {}
+	explicit ReverseComparer(Compare && comp) : comp(std::forward<Compare>(comp)) {}
 
 	template <class U, class V>
-	constexpr bool operator ()(U && u, V && v) & {
-		return comp(std::forward<U>(v), std::forward<V>(u));
-	}
-
-	template <class U, class V>
-	bool operator ()(U && u, V && v) && {
-		return comp(std::forward<U>(v), std::forward<V>(u));
-	}
-
-	template <class U, class V>
-	bool operator ()(U && u, V && v) const & {
-		return comp(std::forward<U>(v), std::forward<V>(u));
-	}
-
-	template <class U, class V>
-	bool operator ()(U && u, V && v) const && {
+	constexpr bool operator ()(U && u, V && v) const {
 		return comp(std::forward<U>(v), std::forward<V>(u));
 	}
 
@@ -95,8 +81,11 @@ void insertionSort(BidirIt first, BidirIt last) {
 }
 
 
-template <class IntType>
-void swapBits(IntType & a, IntType & b, IntType mask) {
+template <class IntType, class IntType2 = IntType>
+typename std::enable_if<
+	std::is_convertible<IntType2, IntType>::value,
+	void
+>::type swapBits(IntType & a, IntType & b, IntType2 mask) {
 	IntType t = (a ^ b) & mask;
 	a ^= t;
 	b ^= t;

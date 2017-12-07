@@ -23,7 +23,7 @@ bool Live::prepare(const char * json) {
 	try {
 		rapidjson::Document doc;
 		if (doc.Parse(json).HasParseError()) {
-			throw runtime_error("Invalid JSON");
+			throw JsonParseError("Invalid JSON");
 		}
 		loadSettings(doc);
 		loadUnit(doc);
@@ -37,6 +37,7 @@ bool Live::prepare(const char * json) {
 
 void Live::loadSettings(const rapidjson::Value & jsonObj) {
 	constexpr double SQRT1_2 = 0.707106781186547524401;
+	cardNum = 9;
 	hiSpeed = 0.7;
 	judgeOffset = 0.;
 	double sigmaHit = 0.015;
@@ -64,10 +65,11 @@ void Live::loadSettings(const rapidjson::Value & jsonObj) {
 
 
 void Live::loadUnit(const rapidjson::Value & jsonObj) {
+	if (9 != cardNum) {
+		throw runtime_error("Invalid number of cards");
+	}
 	status = 92276;
 	judgeSisStatus = 0;
-	cardNum = 9;
-	cards.clear();
 	cards.resize(cardNum);
 	for (int i = 0; i < cardNum; i++) {
 		auto & card = cards[i];
@@ -160,19 +162,19 @@ void Live::loadUnit(const rapidjson::Value & jsonObj) {
 
 
 void Live::loadCharts(const rapidjson::Value & jsonObj) {
-	chartNum = 2;
+	int chartNum = 2;
 	charts.resize(chartNum);
 	int totalNotes = 0;
 	for (int k = 0; k < chartNum; k++) {
 		auto & chart = charts[k];
 		chart.memberCategory = 1;
-		chart.scoreRate = 1;
-		chart.noteNum = jsonObj.Size();
+		chart.scoreRate = (100 + k * 0) / 100.0;
+		int noteNum = jsonObj.Size();
 		chart.beginNote = totalNotes;
-		totalNotes += chart.noteNum;
+		totalNotes += noteNum;
 		chart.endNote = totalNotes;
-		chart.notes.resize(chart.noteNum);
-		for (int i = 0; i < chart.noteNum; i++) {
+		chart.notes.resize(noteNum);
+		for (int i = 0; i < noteNum; i++) {
 			const auto & noteObj = GetJsonMemberObject(jsonObj, i);
 			auto & note = chart.notes[i];
 			int p = GetJsonMemberInt(noteObj, "position");
@@ -203,20 +205,20 @@ void Live::loadCharts(const rapidjson::Value & jsonObj) {
 
 
 void Live::processCharts() {
-	chartHits.resize(chartNum);
-	combos.reserve(accumulate(charts.begin(), charts.end(), 0, [](int x, const auto & c) {
-		return x + c.noteNum;
+	chartHits.resize(charts.size());
+	combos.reserve(accumulate(charts.begin(), charts.end(), size_t{ 0 }, [](size_t x, const auto & c) {
+		return x + c.notes.size();
 	}));
-	for (int k = 0; k < chartNum; k++) {
+	for (size_t k = 0; k < charts.size(); k++) {
 		auto & chart = charts[k];
 		auto & hits = chartHits[k];
 
 		hits.clear();
-		for (int i = 0; i < chart.noteNum; i++) {
+		for (size_t i = 0; i < chart.notes.size(); i++) {
 			const auto & note = chart.notes[i];
-			hits.emplace_back(i, note, false);
+			hits.emplace_back(static_cast<int>(i), note, false);
 			if (note.isHold) {
-				hits.emplace_back(i, note, true);
+				hits.emplace_back(static_cast<int>(i), note, true);
 			}
 		}
 		sort(hits.begin(), hits.end(), compareTime);
@@ -237,7 +239,7 @@ int Live::simulate(int id, uint64_t seed) {
 	initSimulation();
 	simulateHitError();
 	startSkillTrigger();
-	for (chartIndex = 0; chartIndex < chartNum; chartIndex++) {
+	for (chartIndex = 0; chartIndex < charts.size(); chartIndex++) {
 		if (chartIndex > 0) {
 			initNextSong();
 		}
@@ -247,6 +249,7 @@ int Live::simulate(int id, uint64_t seed) {
 			if (hitIndex < hits.size()
 				&& (skillEvents.empty() || !(skillEvents.top().time < hits[hitIndex].time))
 				) {
+				// Note hit/release
 				const auto & hit = hits[hitIndex];
 				time = hit.time;
 				bool isPerfect = hit.isPerfect || judgeCount;
@@ -287,6 +290,7 @@ int Live::simulate(int id, uint64_t seed) {
 
 				++hitIndex;
 			} else if (!skillEvents.empty()) {
+				// Skill event
 				auto event = skillEvents.top();
 				skillEvents.pop();
 				time = event.time;
@@ -324,7 +328,6 @@ void Live::initSimulation() {
 	combo = 0;
 	perfect = 0;
 	starPerfect = 0;
-	judgeCount = 0;
 	itComboMul = COMBO_MUL.cbegin();
 	initForEverySong();
 	assert(skillEvents.empty());
@@ -339,7 +342,6 @@ void Live::initSimulation() {
 
 
 void Live::initNextSong() {
-	assert(!judgeCount);
 	initForEverySong();
 	initSkillsForNextSong();
 }
@@ -351,12 +353,14 @@ void Live::initForEverySong() {
 	hitIndex = 0;
 	chartMemberCategory = chart.memberCategory;
 	chartScoreRate = chart.scoreRate;
+	assert(!judgeCount);
+	assert(activationMod == 1);
 }
 
 
 void Live::shuffleSkills() {
 	for (int i = cardNum; i > 1; --i) {
-		swapBits(cards[i - 1].skillId, cards[rng(i)].skillId, static_cast<unsigned>(SkillOrderMask));
+		swapBits(cards[i - 1].skillId, cards[rng(i)].skillId, SkillOrderMask);
 	}
 }
 
@@ -427,7 +431,7 @@ void Live::initSkillsForEverySong() {
 
 void Live::simulateHitError() {
 #if SIMULATE_HIT_TIMING
-	for (int k = 0; k < chartNum; k++) {
+	for (size_t k = 0; k < charts.size(); k++) {
 		auto & notes = charts[k].notes;
 		auto & hits = chartHits[k];
 		for (auto & hit : hits) {
@@ -478,7 +482,7 @@ void Live::simulateHitError() {
 #endif
 	}
 #else
-	for (int k = 0; k < chartNum; k++) {
+	for (size_t k = 0; k < charts.size(); k++) {
 		auto & notes = charts[k].notes;
 		auto & hits = chartHits[k];
 		for (auto & hit : hits) {
@@ -508,8 +512,7 @@ void Live::simulateHitError() {
 
 
 void Live::startSkillTrigger() {
-	for (int i = 0; i < cardNum; i++) {
-		auto & card = cards[i];
+	for (auto & card : cards) {
 		const auto & skill = card.skill;
 		if (!skill.valid) {
 			continue;
@@ -525,7 +528,7 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 	noteScore *= isPerfect ? 1.25 : 1.1;
 	noteScore *= itComboMul->second;
 	// Doesn't judge accuracy?
-	// L7_84 = L12_12.SkillEffect.PerfectBonus.apply(L7_84)
+	noteScore *= perfectBonusRate;
 	if (card.category == chartMemberCategory) {
 		noteScore *= 1.1;
 	}
@@ -547,7 +550,7 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 #endif
 	// Only judge hold end accuracy?
 	if (isPerfect) {
-		// L7_84 = L7_84 + L12_12.SkillEffect.PerfectBonus.sumBonus(A3_80)
+		noteScore += perfectBonusFixed;
 	}
 	// L7_84 = L12_12.Combo.applyFixedValueBonus(L7_84)
 	// L8_117 = L19_19.SkillEffect.ScoreBonus.apply(L9_118)
@@ -571,7 +574,8 @@ void Live::skillTrigger(LiveCard & card) {
 		}
 	}
 	const auto & level = card.skillLevel();
-	if ((int)rng(100) < level.activationRate) {
+	// Effectively ceil(rate * mod)
+	if (rng(100) < level.activationRate * activationMod) {
 		skillOn(card, isMimic);
 	} else {
 		skillSetNextTriggerOnNextFrame(card);
@@ -601,6 +605,7 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 		break;
 
 	case Skill::Effect::SkillRateUp:
+		activationMod *= level.effectValue;
 		break;
 
 	case Skill::Effect::Mimic:
@@ -608,9 +613,13 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 		break;
 
 	case Skill::Effect::PerfectBonusRatio:
+		perfectBonusRateQueue.push_back(level.effectValue);
+		perfectBonusRate = accumulate(perfectBonusRateQueue.begin(), perfectBonusRateQueue.end(), 1.0);
 		break;
 
 	case Skill::Effect::PerfectBonusFixedValue:
+		perfectBonusFixedQueue.push_back(level.effectValue);
+		perfectBonusFixed = accumulate(perfectBonusFixedQueue.begin(), perfectBonusFixedQueue.end(), 0.0);
 		break;
 
 	case Skill::Effect::ComboBonusRatio:
@@ -667,6 +676,8 @@ void Live::skillOff(LiveCard & card) {
 		break;
 
 	case Skill::Effect::SkillRateUp:
+		// Klab bug?
+		activationMod = 1;
 		break;
 
 	case Skill::Effect::Mimic:
@@ -674,9 +685,15 @@ void Live::skillOff(LiveCard & card) {
 		break;
 
 	case Skill::Effect::PerfectBonusRatio:
+		// Klab bug?
+		perfectBonusRateQueue.pop_front();
+		perfectBonusRate = accumulate(perfectBonusRateQueue.begin(), perfectBonusRateQueue.end(), 1.0);
 		break;
 
 	case Skill::Effect::PerfectBonusFixedValue:
+		// Klab bug?
+		perfectBonusFixedQueue.pop_front();
+		perfectBonusFixed = accumulate(perfectBonusFixedQueue.begin(), perfectBonusFixedQueue.end(), 0.0);
 		break;
 
 	case Skill::Effect::ComboBonusRatio:
@@ -755,7 +772,7 @@ void Live::skillSetNextTrigger(LiveCard & card) {
 			break;
 		}
 		skillEvents.emplace(triggerTime, SkillOn | card.skillId);
-		//card.nextTrigger = triggerTime;
+		// card.nextTrigger isn't used for time trigger
 		break;
 	}
 	case Skill::Trigger::NotesCount:

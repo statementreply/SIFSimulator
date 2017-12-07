@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <array>
+#include <deque>
 #include <tuple>
 #include <cstdint>
 #include <climits>
@@ -115,7 +116,6 @@ private:
 
 	struct LiveChart {
 		int memberCategory;
-		int noteNum;
 		int beginNote;
 		int endNote;
 		double lastNoteShowTime;
@@ -170,49 +170,60 @@ private:
 	pcg32 rng;
 
 	// Settings
-	double hiSpeed;
-	double judgeOffset;
+	int cardNum = 9;
+	double hiSpeed = 0.7;
+	double judgeOffset = 0;
 #if SIMULATE_HIT_TIMING
-	NormalDistribution<> eHit;
-	NormalDistribution<> eHoldBegin;
-	NormalDistribution<> eHoldEnd;
-	NormalDistribution<> eSlide;
+	NormalDistribution<> eHit{ 0, 0.015 };
+	NormalDistribution<> eHoldBegin{ 0, 0.015 };
+	NormalDistribution<> eHoldEnd{ 0, 0.015 };
+	NormalDistribution<> eSlide{ 0, 0.015 };
 #else
-	BernoulliDistribution gHit;
-	BernoulliDistribution gHoldBegin;
-	BernoulliDistribution gHoldEnd;
-	BernoulliDistribution gSlide;
-	BernoulliDistribution gSlideHoldEnd;
+	BernoulliDistribution gHit{ 0.05 };
+	BernoulliDistribution gHoldBegin{ 0.05 };
+	BernoulliDistribution gHoldEnd{ 0.05 };
+	BernoulliDistribution gSlide{ 0.05 };
+	BernoulliDistribution gSlideHoldEnd{ 0.05 };
 #endif
 
 	// Unit
-	double status;
-	double judgeSisStatus;
-	int cardNum;
+	double status = 0;
+	double judgeSisStatus = 0;
 	std::vector<LiveCard> cards;
 
 	// Chart
-	int chartNum;
 	std::vector<LiveChart> charts;
 
 	// Simulation
-	int chartIndex;
-	int chartMemberCategory;
-	double chartScoreRate;
-	double time;
-	size_t hitIndex;
-	double score;
-	int combo;
-	int perfect;
-	int starPerfect;
-	int judgeCount;
-	decltype(COMBO_MUL)::const_iterator itComboMul;
+	// Basic
+	size_t chartIndex = 0;
+	int chartMemberCategory = 0;
+	double chartScoreRate = 1;
+	double time = 0;
+	int hitIndex = 0;
+	double score = 0;
+	int combo = 0;
+	int perfect = 0;
+	int starPerfect = 0;
+	decltype(COMBO_MUL)::const_iterator itComboMul = COMBO_MUL.begin();
+
+	// Pre calc
 	std::vector<std::vector<Hit>> chartHits;
 	std::vector<double> combos;
+
+	// Skill trigger
 	MinPriorityQueue<SkillEvent> skillEvents;
 	MinPriorityQueue<SkillTrigger<double>> scoreTriggers;
 	MinPriorityQueue<SkillTrigger<>> perfectTriggers;
 	MinPriorityQueue<SkillTrigger<>> starPerfectTriggers;
 	std::vector<int> chainTriggers;
-	MimicStack mimicStack;
+	MimicStack mimicStack{ -1, 0, 0, 0 };
+
+	// Skill effect
+	int judgeCount = 0;
+	double activationMod = 1;
+	std::deque<double> perfectBonusFixedQueue;
+	double perfectBonusFixed = 0;
+	std::deque<double> perfectBonusRateQueue;
+	double perfectBonusRate = 1;
 };
