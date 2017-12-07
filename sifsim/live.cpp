@@ -14,24 +14,19 @@
 using namespace std;
 
 
-constexpr auto compareTime = [](const auto & a, const auto & b) {
+const auto compareTime = [](const auto & a, const auto & b) {
 	return a.time < b.time;
 };
 
 
-bool Live::prepare(const char * json) {
-	try {
-		rapidjson::Document doc;
-		if (doc.Parse(json).HasParseError()) {
-			throw JsonParseError("Invalid JSON");
-		}
-		loadSettings(doc);
-		loadUnit(doc);
-		loadCharts(doc);
-	} catch (runtime_error &) {
-		return false;
+Live::Live(const string & json) {
+	rapidjson::Document doc;
+	if (doc.Parse(json.c_str()).HasParseError()) {
+		throw JsonParseError("Invalid JSON");
 	}
-	return true;
+	loadSettings(doc);
+	loadUnit(doc);
+	loadCharts(doc);
 }
 
 
@@ -225,7 +220,7 @@ void Live::processCharts() {
 
 		for (const auto & h : hits) {
 			if (!h.isHoldBegin) {
-				combos.push_back(h.time);
+				combos.emplace_back(h.time);
 			}
 		}
 		assert(combos.size() == chart.endNote);
@@ -613,12 +608,12 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 		break;
 
 	case Skill::Effect::PerfectBonusRatio:
-		perfectBonusRateQueue.push_back(level.effectValue);
+		perfectBonusRateQueue.emplace_back(level.effectValue);
 		perfectBonusRate = accumulate(perfectBonusRateQueue.begin(), perfectBonusRateQueue.end(), 1.0);
 		break;
 
 	case Skill::Effect::PerfectBonusFixedValue:
-		perfectBonusFixedQueue.push_back(level.effectValue);
+		perfectBonusFixedQueue.emplace_back(level.effectValue);
 		perfectBonusFixed = accumulate(perfectBonusFixedQueue.begin(), perfectBonusFixedQueue.end(), 0.0);
 		break;
 
@@ -757,8 +752,8 @@ void Live::skillSetNextTrigger(LiveCard & card) {
 	};
 
 	const auto setTrigger = [&](auto & queue, const auto & curr) {
-		constexpr auto falseFunc = [](int) { return false; };
-		constexpr auto identity = [](int trigger) { return trigger; };
+		const auto falseFunc = [](int) { return false; };
+		const auto identity = [](int trigger) { return trigger; };
 		return setTransformedTrigger(queue, curr, false, identity, falseFunc);
 	};
 
@@ -821,8 +816,7 @@ void Live::skillSetNextTriggerOnNextFrame(LiveCard & card) {
 #else
 	bool needDelay = false;
 #endif
-	if (needDelay)
-	{
+	if (needDelay) {
 		card.isActive = true;
 		skillEvents.emplace(time + FRAME_TIME, SkillNextTrigger | card.skillId);
 	} else {

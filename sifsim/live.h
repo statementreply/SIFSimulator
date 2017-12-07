@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <deque>
+#include <string>
 #include <tuple>
 #include <cstdint>
 #include <climits>
@@ -27,7 +28,7 @@ using NormalDistribution = std::normal_distribution<RealType>;
 
 class Live {
 public:
-	bool prepare(const char * json);
+	explicit Live(const std::string & json);
 	int simulate(int id, uint64_t seed = UINT64_C(0xcafef00dd15ea5e5));
 
 public:
