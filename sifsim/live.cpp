@@ -31,6 +31,7 @@ Live::Live(const string & json) {
 
 
 void Live::loadSettings(const rapidjson::Value & jsonObj) {
+	// TODO: load settings
 	constexpr double SQRT1_2 = 0.707106781186547524401;
 	cardNum = 9;
 	hiSpeed = 0.7;
@@ -60,10 +61,11 @@ void Live::loadSettings(const rapidjson::Value & jsonObj) {
 
 
 void Live::loadUnit(const rapidjson::Value & jsonObj) {
+	// TODO: load unit
 	if (9 != cardNum) {
 		throw runtime_error("Invalid number of cards");
 	}
-	status = 92276;
+	unitStatus = 92276;
 	judgeSisStatus = 0;
 	cards.resize(cardNum);
 	for (int i = 0; i < cardNum; i++) {
@@ -157,6 +159,7 @@ void Live::loadUnit(const rapidjson::Value & jsonObj) {
 
 
 void Live::loadCharts(const rapidjson::Value & jsonObj) {
+	// TODO: load charts
 	int chartNum = 2;
 	charts.resize(chartNum);
 	int totalNotes = 0;
@@ -229,9 +232,9 @@ void Live::processCharts() {
 
 
 int Live::simulate(uint64_t id, uint64_t seed) {
+	constexpr uint64_t RNG_ADVANCE = UINT64_C(7640891576956012744);
 	rng.seed(seed);
-	rng.advance(static_cast<uint64_t>(id) << 32);
-	auto rng0 = rng;
+	rng.advance(id * RNG_ADVANCE);
 	initSimulation();
 	simulateHitError();
 	startSkillTrigger();
@@ -255,7 +258,7 @@ int Live::simulate(uint64_t id, uint64_t seed) {
 					++hitIndex;
 					continue;
 				}
-
+				// Note stats
 				++combo;
 				if (combo > itComboMul->first) {
 					++itComboMul;
@@ -277,6 +280,7 @@ int Live::simulate(uint64_t id, uint64_t seed) {
 						}
 					}
 				}
+				// Score
 				score += computeScore(note, isPerfect);
 				for (; !scoreTriggers.empty() && score >= scoreTriggers.top().value;
 					scoreTriggers.pop()
@@ -314,7 +318,6 @@ int Live::simulate(uint64_t id, uint64_t seed) {
 	clear(scoreTriggers);
 	clear(perfectTriggers);
 	clear(starPerfectTriggers);
-	return rng - rng0;
 	return static_cast<int>(score);
 }
 
@@ -326,6 +329,10 @@ void Live::initSimulation() {
 	perfect = 0;
 	starPerfect = 0;
 	itComboMul = COMBO_MUL.cbegin();
+	for (auto & card : cards) {
+		card.buffedStatus = nullopt;
+		card.syncStatus = nullopt;
+	}
 	initForEverySong();
 	assert(skillEvents.empty());
 	assert(scoreTriggers.empty());
@@ -346,6 +353,7 @@ void Live::initNextSong() {
 
 void Live::initForEverySong() {
 	const auto & chart = charts[chartIndex];
+	status = unitStatus;
 	time = 0;
 	hitIndex = 0;
 	chartMemberCategory = chart.memberCategory;
@@ -399,8 +407,11 @@ void Live::initSkillsForNextSong() {
 			break;
 
 		case Skill::Trigger::Chain:
+			// Not cleared between songs?
+			/*
 			card.remainingChainTypeNum = skill.chainTypeNum;
 			fill(card.chainStatus.begin(), card.chainStatus.end(), 1);
+			//*/
 			break;
 		}
 	}
@@ -523,6 +534,7 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 	const auto & card = cards[note.position];
 	double noteScore = status;
 	noteScore *= isPerfect ? 1.25 : 1.1;
+	// TODO: combo fever
 	noteScore *= itComboMul->second;
 	// Doesn't judge accuracy?
 	noteScore *= perfectBonusRate;
@@ -549,6 +561,7 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 	if (isPerfect) {
 		noteScore += perfectBonusFixed;
 	}
+	// TODO: combo fever
 	// L7_84 = L12_12.Combo.applyFixedValueBonus(L7_84)
 	// L8_117 = L19_19.SkillEffect.ScoreBonus.apply(L9_118)
 	noteScore *= chartScoreRate;
@@ -589,12 +602,16 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 	case Skill::Effect::GreatToPerfect:
 	case Skill::Effect::GoodToPerfect:
 		if (!judgeCount) {
+			// Technically not the same as SIF (i.e. floating point addition not associative)
 			status += judgeSisStatus;
 		}
 		judgeCount++;
 		break;
 
 	case Skill::Effect::HpRestore:
+		// TODO: HpRestore SIS handling
+		//     a) Convert to ScorePlus in LoadUnit?
+		//     b) Ignore, require preprocessed input?
 		break;
 
 	case Skill::Effect::ScorePlus:
@@ -607,6 +624,7 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 
 	case Skill::Effect::Mimic:
 		assert(false);
+		throw logic_error("Bug detected. Please contact software developer.\n  (" FILE_LOC ")");
 		break;
 
 	case Skill::Effect::PerfectBonusRatio:
@@ -620,18 +638,39 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 		break;
 
 	case Skill::Effect::ComboBonusRatio:
+		// TODD: combo fever on
 		break;
 
 	case Skill::Effect::ComboBonusFixedValue:
+		// TODD: combo fever on
 		break;
 
 	case Skill::Effect::SyncStatus:
+	{
+		if (skill.effectTargets.empty()) {
+			break;
+		}
+		auto index = rng(static_cast<uint32_t>(skill.effectTargets.size()));
+		const auto & target = cards[skill.effectTargets[index]];
+		card.syncStatus = target.getSyncStatus();
+		status += *card.syncStatus - card.status;
+	}
 		break;
 
 	case Skill::Effect::GainSkillLevel:
+		// TODD: gain skill level on
 		break;
 
 	case Skill::Effect::GainStatus:
+		for (const auto & i : skill.effectTargets) {
+			auto & target = cards[i];
+			// Not the same as SIF (return L5_80.buff_rate > 1)
+			if (target.buffedStatus) {
+				continue;
+			}
+			target.buffedStatus = target.status * level.effectValue;
+			status += *target.buffedStatus - target.status;
+		}
 		break;
 	}
 
@@ -648,6 +687,7 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 
 	default:
 		assert(false);
+		throw runtime_error("Invalid skill discharge type");
 		break;
 	}
 
@@ -668,6 +708,7 @@ void Live::skillOff(LiveCard & card) {
 		assert(judgeCount);
 		--judgeCount;
 		if (!judgeCount) {
+			// Technically not the same as SIF (i.e. floating point addition not associative)
 			status -= judgeSisStatus;
 		}
 		break;
@@ -679,6 +720,7 @@ void Live::skillOff(LiveCard & card) {
 
 	case Skill::Effect::Mimic:
 		assert(false);
+		throw logic_error("Bug detected. Please contact software developer.\n  (" FILE_LOC ")");
 		break;
 
 	case Skill::Effect::PerfectBonusRatio:
@@ -694,18 +736,33 @@ void Live::skillOff(LiveCard & card) {
 		break;
 
 	case Skill::Effect::ComboBonusRatio:
+		// TODD: combo fever off
 		break;
 
 	case Skill::Effect::ComboBonusFixedValue:
+		// TODD: combo fever off
 		break;
 
 	case Skill::Effect::SyncStatus:
+		status -= *card.syncStatus - card.status;
+		card.syncStatus = nullopt;
 		break;
 
 	case Skill::Effect::GainSkillLevel:
+		// TODD: gain skill level off
 		break;
 
 	case Skill::Effect::GainStatus:
+		for (const auto & i : skill.effectTargets) {
+			auto & target = cards[i];
+			// Not the same as SIF (return L5_80.buff_rate > 1)
+			if (!target.buffedStatus) {
+				continue;
+			}
+			status -= *target.buffedStatus - target.status;
+			target.buffedStatus = nullopt;
+		}
+
 		break;
 	}
 

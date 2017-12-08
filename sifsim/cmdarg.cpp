@@ -1,4 +1,5 @@
 #include "cmdarg.h"
+#include "util.h"
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
@@ -108,7 +109,7 @@ bool parseCmdArg(int argc, char * argv[]) {
 			goto _badOpt;
 		}
 		assert(false);
-		throw logic_error("An internal error occured");
+		throw logic_error("Bug detected. Please contact software developer.\n  (" FILE_LOC ")");
 
 	_longOpt:
 		if (*parg == '\0') {
@@ -156,7 +157,7 @@ bool parseCmdArg(int argc, char * argv[]) {
 			goto _shortOpt;
 		}
 		assert(false);
-		throw logic_error("An internal error occured");
+		throw logic_error("Bug detected. Please contact software developer.\n  (" FILE_LOC ")");
 
 	_badOpt:
 		if (isLongOpt) {

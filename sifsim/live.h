@@ -6,6 +6,7 @@
 #include <deque>
 #include <string>
 #include <tuple>
+#include <optional>
 #include <cstdint>
 #include <climits>
 #include "pcg/pcg_random.hpp"
@@ -109,9 +110,15 @@ private:
 		std::vector<int> chainStatus;
 		int mimicSkillIndex;
 		int mimicSkillLevel;
+		std::optional<double> buffedStatus;
+		std::optional<double> syncStatus;
 
 		const Skill::LevelData & skillLevel() const {
 			return skill.levels[currentSkillLevel - 1];
+		}
+
+		double getSyncStatus() const {
+			return syncStatus.value_or(buffedStatus.value_or(status));
 		}
 	};
 
@@ -188,7 +195,7 @@ private:
 #endif
 
 	// Unit
-	double status = 0;
+	double unitStatus = 0;
 	double judgeSisStatus = 0;
 	std::vector<LiveCard> cards;
 
@@ -197,6 +204,7 @@ private:
 
 	// Simulation
 	// Basic
+	double status = 0;
 	size_t chartIndex = 0;
 	int chartMemberCategory = 0;
 	double chartScoreRate = 1;

@@ -9,6 +9,11 @@
 #include <type_traits>
 
 
+#define PREPROCESSOR_STRING(x) #x
+#define PREPROCESSOR_STRING_MACRO(x) PREPROCESSOR_STRING(x)
+#define FILE_LOC __FILE__ ":" PREPROCESSOR_STRING_MACRO(__LINE__)
+
+
 template <class CharT, class Traits>
 auto readAllText(std::basic_istream<CharT, Traits> & ist) {
 	return std::basic_string<CharT, Traits>(
