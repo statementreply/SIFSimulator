@@ -15,6 +15,7 @@ using namespace std;
 
 int Utf8Main(int argc, char * argv[]) try {
 	random_device rd;
+
 	if (!parseCmdArg(argc, argv) || g_cmdArg.help) {
 		if (g_cmdArg.help) {
 			printUsage();
@@ -23,6 +24,22 @@ int Utf8Main(int argc, char * argv[]) try {
 			return 1;
 		}
 	}
+	if (!g_cmdArg.iters) {
+#if NDEBUG
+		g_cmdArg.iters = 100000;
+#else
+		g_cmdArg.iters = 100;
+#endif
+	}
+	if (!g_cmdArg.seed) {
+#if NDEBUG
+		g_cmdArg.seed = static_cast<uint64_t>(rd()) ^ static_cast<uint64_t>(rd()) << 32;
+#else
+		g_cmdArg.seed = UINT64_C(0xcafef00dd15ea5e5);
+#endif
+	}
+
+
 	string json;
 	if (g_cmdArg.argumunts.empty() || !*g_cmdArg.argumunts[0] || strcmp(g_cmdArg.argumunts[0], "-") == 0) {
 		cin.tie(nullptr);
@@ -34,20 +51,13 @@ int Utf8Main(int argc, char * argv[]) try {
 		}
 		json = readAllText(fin);
 	}
-	if (!g_cmdArg.fixedSeed) {
-#if NDEBUG
-		g_cmdArg.seed = static_cast<uint64_t>(rd()) ^ static_cast<uint64_t>(rd()) << 32;
-#else
-		g_cmdArg.seed = UINT64_C(0xcafef00dd15ea5e5);
-#endif
-	}
 	Live live(json);
 	//double sum = 0.;
 	vector<int> results;
-	results.reserve(g_cmdArg.iters);
+	results.reserve(*g_cmdArg.iters);
 	clock_t t0 = clock();
-	for (int i = 0; i < g_cmdArg.iters; i++) {
-		results.emplace_back(live.simulate(i, g_cmdArg.seed));
+	for (int i = 0; i < *g_cmdArg.iters; i++) {
+		results.emplace_back(live.simulate(g_cmdArg.skipIters + i, *g_cmdArg.seed));
 		if (!(~i & 0xfff)) {
 			clock_t t1 = clock();
 			cerr << fixed << setprecision(3) << ((double)(t1 - t0) / CLOCKS_PER_SEC) << endl;
@@ -65,8 +75,8 @@ int Utf8Main(int argc, char * argv[]) try {
 	auto m = minmax_element(results.begin(), results.end());
 	cout << "Min\t" << *m.first << endl;
 	cout << "Max\t" << *m.second << endl;
-	if (g_cmdArg.iters >= 10000) {
-		auto nth = results.end() - g_cmdArg.iters / 1000;
+	if (*g_cmdArg.iters >= 10000) {
+		auto nth = results.end() - *g_cmdArg.iters / 1000;
 		nth_element(results.begin(), nth, results.end());
 		cout << "0.1%\t" << *nth << endl;
 	}

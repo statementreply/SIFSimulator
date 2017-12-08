@@ -228,9 +228,10 @@ void Live::processCharts() {
 }
 
 
-int Live::simulate(int id, uint64_t seed) {
+int Live::simulate(uint64_t id, uint64_t seed) {
 	rng.seed(seed);
 	rng.advance(static_cast<uint64_t>(id) << 32);
+	auto rng0 = rng;
 	initSimulation();
 	simulateHitError();
 	startSkillTrigger();
@@ -313,6 +314,7 @@ int Live::simulate(int id, uint64_t seed) {
 	clear(scoreTriggers);
 	clear(perfectTriggers);
 	clear(starPerfectTriggers);
+	return rng - rng0;
 	return static_cast<int>(score);
 }
 

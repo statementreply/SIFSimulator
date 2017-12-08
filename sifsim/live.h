@@ -29,7 +29,7 @@ using NormalDistribution = std::normal_distribution<RealType>;
 class Live {
 public:
 	explicit Live(const std::string & json);
-	int simulate(int id, uint64_t seed = UINT64_C(0xcafef00dd15ea5e5));
+	int simulate(uint64_t id, uint64_t seed = UINT64_C(0xcafef00dd15ea5e5));
 
 public:
 	static constexpr double FRAME_TIME = 0.016;

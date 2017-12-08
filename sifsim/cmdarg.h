@@ -3,16 +3,13 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <optional>
 
 struct CmdArg {
 	bool help = false;
-#if NDEBUG
-	int iters = 100000;
-#else
-	int iters = 100;
-#endif
-	bool fixedSeed = false;
-	uint64_t seed;
+	std::optional<int> iters;
+	uint64_t skipIters = 0;
+	std::optional<uint64_t> seed;
 	std::vector<char *> argumunts;
 };
 

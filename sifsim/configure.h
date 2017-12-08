@@ -3,7 +3,7 @@
 // Simulation config
 
 #ifndef SIMULATE_HIT_TIMING
-#define SIMULATE_HIT_TIMING 0
+#define SIMULATE_HIT_TIMING 1
 #endif
 
 #ifndef FORCE_SKILL_FRAME_DELAY
