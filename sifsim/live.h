@@ -51,9 +51,9 @@ private:
 	struct LiveNote;
 	struct LiveCard;
 
-	void loadSettings(const rapidjson::Value & jsonObj);
-	void loadUnit(const rapidjson::Value & jsonObj);
-	void loadCharts(const rapidjson::Value & jsonObj);
+	void loadSettings(const rapidjson::Value & value);
+	void loadUnit(const rapidjson::Value & value);
+	void loadCharts(const rapidjson::Value & value);
 	void processCharts();
 
 	void initSimulation();

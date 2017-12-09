@@ -1,8 +1,10 @@
 #pragma once
 
+#include "rapidjson/rapidjson.h"
 #include <string>
 #include <stdexcept>
 #include <utility>
+#include <optional>
 
 
 class JsonParseError : public std::runtime_error {
@@ -12,15 +14,32 @@ public:
 };
 
 
-template <class RapidJsonValue>
-const auto & GetJsonMemberObject(const RapidJsonValue & obj, unsigned index) {
-	if (!obj.IsArray()) {
-		throw JsonParseError(std::string("JSON: Invalid type"));
-	}
+const rapidjson::Value & GetJsonItem(const rapidjson::Value & obj, rapidjson::SizeType index) {
 	if (index >= obj.Size()) {
 		throw JsonParseError(std::string("JSON: Index out of range"));
 	}
-	const auto & member = obj[index];
+	return obj[index];
+}
+
+const rapidjson::Value & GetJsonMember(const rapidjson::Value & obj, const char * name) {
+	auto member = obj.FindMember(name);
+	if (member == obj.MemberEnd()) {
+		throw JsonParseError(std::string("JSON: Member not found"));
+	}
+	return member->value;
+}
+
+
+const rapidjson::Value & GetJsonItemObject(const rapidjson::Value & obj, rapidjson::SizeType index) {
+	const auto & member = GetJsonItem(obj, index);
+	if (!member.IsObject()) {
+		throw JsonParseError(std::string("JSON: Invalid type"));
+	}
+	return member;
+}
+
+const rapidjson::Value & GetJsonMemberObject(const rapidjson::Value & obj, const char * name) {
+	const auto & member = GetJsonMember(obj, name);
 	if (!member.IsObject()) {
 		throw JsonParseError(std::string("JSON: Invalid type"));
 	}
@@ -28,31 +47,8 @@ const auto & GetJsonMemberObject(const RapidJsonValue & obj, unsigned index) {
 }
 
 
-template <class RapidJsonValue>
-const auto & GetJsonMemberObject(const RapidJsonValue & obj, const char * name) {
-	if (!obj.IsObject()) {
-		throw JsonParseError(std::string("JSON: Invalid type"));
-	}
-	if (!obj.HasMember(name)) {
-		throw JsonParseError(std::string("JSON: Member not found"));
-	}
-	const auto & member = obj[name];
-	if (!member.IsObject()) {
-		throw JsonParseError(std::string("JSON: Invalid type"));
-	}
-	return member;
-}
-
-
-template <class RapidJsonValue>
-int GetJsonMemberInt(RapidJsonValue && obj, const char * name) {
-	if (!obj.IsObject()) {
-		throw JsonParseError(std::string("JSON: Invalid type"));
-	}
-	if (!obj.HasMember(name)) {
-		throw JsonParseError(std::string("JSON: Member not found"));
-	}
-	auto && member = obj[name];
+int GetJsonMemberInt(const rapidjson::Value & obj, const char * name) {
+	const auto & member = GetJsonMember(obj, name);
 	if (!member.IsInt()) {
 		throw JsonParseError(std::string("JSON: Invalid type"));
 	}
@@ -60,17 +56,22 @@ int GetJsonMemberInt(RapidJsonValue && obj, const char * name) {
 }
 
 
-template <class RapidJsonValue>
-double GetJsonMemberDouble(const RapidJsonValue & obj, const char * name) {
-	if (!obj.IsObject()) {
-		throw JsonParseError(std::string("JSON: Invalid type"));
-	}
-	if (!obj.HasMember(name)) {
-		throw JsonParseError(std::string("JSON: Member not found"));
-	}
-	auto && member = obj[name];
+double GetJsonMemberDouble(const rapidjson::Value & obj, const char * name) {
+	const auto & member = GetJsonMember(obj, name);
 	if (!member.IsNumber()) {
 		throw JsonParseError(std::string("JSON: Invalid type"));
 	}
 	return member.GetDouble();
+}
+
+
+std::optional<double> TryGetJsonMemberDouble(const rapidjson::Value & obj, const char * name) {
+	auto member = obj.FindMember(name);
+	if (member == obj.MemberEnd() || member->value.IsNull()) {
+		return std::nullopt;
+	}
+	if (!member->value.IsNumber()) {
+		throw JsonParseError(std::string("JSON: Invalid type"));
+	}
+	return member->value.GetDouble();
 }

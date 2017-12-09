@@ -30,7 +30,7 @@ Live::Live(const string & json) {
 }
 
 
-void Live::loadSettings(const rapidjson::Value & jsonObj) {
+void Live::loadSettings(const rapidjson::Value & value) {
 	// TODO: load settings
 	constexpr double SQRT1_2 = 0.707106781186547524401;
 	cardNum = 9;
@@ -60,7 +60,7 @@ void Live::loadSettings(const rapidjson::Value & jsonObj) {
 }
 
 
-void Live::loadUnit(const rapidjson::Value & jsonObj) {
+void Live::loadUnit(const rapidjson::Value & value) {
 	// TODO: load unit
 	if (9 != cardNum) {
 		throw runtime_error("Invalid number of cards");
@@ -158,7 +158,7 @@ void Live::loadUnit(const rapidjson::Value & jsonObj) {
 }
 
 
-void Live::loadCharts(const rapidjson::Value & jsonObj) {
+void Live::loadCharts(const rapidjson::Value & value) {
 	// TODO: load charts
 	int chartNum = 2;
 	charts.resize(chartNum);
@@ -173,7 +173,7 @@ void Live::loadCharts(const rapidjson::Value & jsonObj) {
 		chart.endNote = totalNotes;
 		chart.notes.resize(noteNum);
 		for (int i = 0; i < noteNum; i++) {
-			const auto & noteObj = GetJsonMemberObject(jsonObj, i);
+			const auto & noteObj = GetJsonItemObject(jsonObj, i);
 			auto & note = chart.notes[i];
 			int p = GetJsonMemberInt(noteObj, "position");
 			if (p <= 0 || p > cardNum) {

@@ -9,6 +9,7 @@
 #include <fstream>
 #include <random>
 #include <numeric>
+#include "rapidjson/filereadstream.h"
 
 using namespace std;
 
@@ -41,6 +42,7 @@ int Utf8Main(int argc, char * argv[]) try {
 
 
 	string json;
+	rapidjson::FileReadStream is;
 	if (g_cmdArg.argumunts.empty() || !*g_cmdArg.argumunts[0] || strcmp(g_cmdArg.argumunts[0], "-") == 0) {
 		cin.tie(nullptr);
 		json = readAllText(cin);

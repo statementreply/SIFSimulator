@@ -1,8 +1,9 @@
 #pragma once
 #include "configure.h"
 
+#include "nativechar.h"
 #include <string>
-#include <iostream>
+#include <cstdio>
 #include <iterator>
 #include <queue>
 #include <utility>
@@ -14,17 +15,23 @@
 #define FILE_LOC __FILE__ ":" PREPROCESSOR_STRING_MACRO(__LINE__)
 
 
-template <class CharT, class Traits>
-auto readAllText(std::basic_istream<CharT, Traits> & ist) {
-	return std::basic_string<CharT, Traits>(
-		std::istream_iterator<CharT, CharT, Traits>(ist),
-		std::istream_iterator<CharT, CharT, Traits>());
-}
-
-template <class CharT, class Traits>
-auto readAllText(std::basic_istream<CharT, Traits> && ist) {
-	return readAllText(ist);
-}
+class CFileWrapper {
+public:
+	CFileWrapper(const char * filename, const char * mode)
+		: fp(NativeFopen(ToNative(filename).c_str(), ToNative(mode).c_str())) {}
+	~CFileWrapper() { if (fp) std::fclose(fp); }
+	CFileWrapper(const CFileWrapper &) = delete;
+	CFileWrapper & operator=(const CFileWrapper &) = delete;
+	CFileWrapper(CFileWrapper && other) noexcept : fp(std::exchange(other.fp, nullptr)) {}
+	CFileWrapper & operator=(CFileWrapper && other) noexcept {
+		FILE * old = std::exchange(fp, std::exchange(other.fp, nullptr));
+		if (old) std::fclose(old);
+		return *this;
+	}
+	operator FILE *() { return fp; }
+private:
+	std::FILE * fp;
+};
 
 
 template <class Compare>
