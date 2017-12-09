@@ -62,7 +62,7 @@ optional<uint64_t> strtou64(const char * str, int radix) {
 }
 
 
-bool parseCmdArg(int argc, char * argv[]) {
+bool parseCmdArg(CmdArg & cmdArg, int argc, char * argv[]) {
 	const auto locateArg = [argv](bool isLongOpt, char * parg, int &i) {
 		if (isLongOpt) {
 			char * pos = strchr(parg, '=');
@@ -81,7 +81,7 @@ bool parseCmdArg(int argc, char * argv[]) {
 	for (int i = 1; i < argc; i++) {
 		char * parg = argv[i];
 		if (!(acceptOpt && parg[0] == '-' && parg[1] != '\0')) {
-			g_cmdArg.argumunts.emplace_back(parg);
+			cmdArg.argumunts.emplace_back(parg);
 			continue;
 		}
 
@@ -118,7 +118,7 @@ bool parseCmdArg(int argc, char * argv[]) {
 
 		} else if (strcmp(parg, "help") == 0) {
 		_help:
-			g_cmdArg.help = true;
+			cmdArg.help = true;
 
 		} else if (strcmp(parg, "iters") == 0) {
 		_iters:
@@ -127,7 +127,7 @@ bool parseCmdArg(int argc, char * argv[]) {
 			if (!pval) goto _noArg;
 			auto n = strtoi(pval, 10);
 			if (!n || *n <= 0) goto _badArg;
-			g_cmdArg.iters = *n;
+			cmdArg.iters = *n;
 
 		} else if (strcmp(parg, "seed") == 0) {
 		_seed:
@@ -136,7 +136,7 @@ bool parseCmdArg(int argc, char * argv[]) {
 			if (!pval) goto _noArg;
 			auto u = strtou64(pval, 0);
 			if (!u) goto _badArg;
-			g_cmdArg.seed = *u;
+			cmdArg.seed = *u;
 
 		} else if (strcmp(parg, "skip-iters") == 0) {
 			haveArg = true;
@@ -144,7 +144,7 @@ bool parseCmdArg(int argc, char * argv[]) {
 			if (!pval) goto _noArg;
 			auto u = strtou64(pval, 0);
 			if (!u) goto _badArg;
-			g_cmdArg.skipIters = *u;
+			cmdArg.skipIters = *u;
 
 		} else {
 			goto _badOpt;

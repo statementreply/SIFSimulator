@@ -7,6 +7,11 @@
         "[[ADVANCED]]": "For advanced users only"
     },
     "settings": {
+        "// mode": {
+            "// Normal": 0,
+            "// MF": 3
+        },
+        "mode": 0,
         "note_speed": 0.7,
         "// judge_offset": "// {sif_judge_setting} * note_speed / (-400)",
         "[[OPTIONAL]] judge_offset": 0,
@@ -16,14 +21,24 @@
             "//     otherwise, provide either one"
         ],
         "// hit_error": "// Mean and SD of hit error (seconds)",
+        "// hit_error.mean:": "// Mean error, +: hit late, -: hit early",
+        "// hit_error.stddev:": "// SD error",
         "[[SINGLE_CHOICE]] hit_error": {
-            "// mu:": "// Positive = hit late, negative = hit early",
-            "[[OPTIONAL]] mu": 0,
-            "sigma": {
-                "hit": 0.016,
-                "hold_begin": 0.016,
-                "hold_end": 0.02,
-                "slide": 0.04
+            "hit": {
+                "[[OPTIONAL]] mean": 0,
+                "stddev": 0.016
+            },
+            "hold_begin": {
+                "[[OPTIONAL]] mean": 0,
+                "stddev": 0.016
+            },
+            "hold_end": {
+                "[[OPTIONAL]] mean": 0,
+                "stddev": 0.02
+            },
+            "slide": {
+                "[[OPTIONAL]] mean": 0,
+                "stddev": 0.04
             }
         },
         "// hit_great_rate": "// Great rate of hits",
@@ -52,20 +67,54 @@
     "[[ADVANCED]] [[OPTIONAL]] card_skill_order": null,
     "cards": [
         {
-            "// _": "// Leftmost"
+            "// _": "// Leftmost",
+            "unit_type": 5,
+            "member_category": 1,
+            "attribute": 1,
+            "// base_status": "// raw + kizuna, for trick (judge) SIS",
+            "base_status": 6330,
+            "// status": "// final, for status gain/sync",
+            "status": 8230,
+            "[[OPTIONAL]] skill": {
+                "effect_type": 11,
+                "discharge_type": 1,
+                "trigger_type": 6,
+                "level": 1,
+                "// effect_target": "// Array of card index (0..8)",
+                "[[OPTIONAL]] effect_target": null,
+                "// trigger_target": "// Array of unit_type",
+                "[[OPTIONAL]] trigger_target": null,
+                "levels": [
+                    {
+                        "// _": "// Level 1",
+                        "effect_value": 700,
+                        "discharge_time": 0,
+                        "trigger_value": 25,
+                        "activation_rate": 33
+                    },
+                    {},
+                    {},
+                    {},
+                    {},
+                    {},
+                    {},
+                    { "// _": "// Level 8" }
+                ]
+            },
+            "[[OPTIONAL]] school_idol_skills": {
+                "[[OPTIONAL]] charm": 150,
+                "[[OPTIONAL]] trick": 33,
+                "[[OPTIONAL]] heal": 480
+            }
         },
         {},
         {},
         {},
-        {
-            "// _": "// Center"
-        },
+        { "// _": "// Center" },
         {},
         {},
         {},
-        {
-            "// _": "// Rightmost"
-        }
+        { "// _": "// Rightmost" }
     ],
     "lives": [
         {

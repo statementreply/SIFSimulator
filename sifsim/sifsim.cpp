@@ -9,15 +9,16 @@
 #include <fstream>
 #include <random>
 #include <numeric>
-#include "rapidjson/filereadstream.h"
+#include <thread>
+#include <future>
+#include <chrono>
 
 using namespace std;
+using namespace std::chrono;
 
 
-int Utf8Main(int argc, char * argv[]) try {
-	random_device rd;
-
-	if (!parseCmdArg(argc, argv) || g_cmdArg.help) {
+int ParseArg(int argc, char * argv[]) {
+	if (!parseCmdArg(g_cmdArg, argc, argv) || g_cmdArg.help) {
 		if (g_cmdArg.help) {
 			printUsage();
 			return 0;
@@ -34,39 +35,73 @@ int Utf8Main(int argc, char * argv[]) try {
 	}
 	if (!g_cmdArg.seed) {
 #if NDEBUG
+		random_device rd;
 		g_cmdArg.seed = static_cast<uint64_t>(rd()) ^ static_cast<uint64_t>(rd()) << 32;
 #else
 		g_cmdArg.seed = UINT64_C(0xcafef00dd15ea5e5);
 #endif
 	}
+	return 0;
+}
 
 
-	string json;
-	rapidjson::FileReadStream is;
-	if (g_cmdArg.argumunts.empty() || !*g_cmdArg.argumunts[0] || strcmp(g_cmdArg.argumunts[0], "-") == 0) {
-		cin.tie(nullptr);
-		json = readAllText(cin);
+optional<const char *> GetInputFilename() {
+	if (g_cmdArg.argumunts.empty()) {
+		return nullopt;
+	} else if (*g_cmdArg.argumunts[0] == '\0') {
+		return nullopt;
+	} else if (strcmp(g_cmdArg.argumunts[0], "-") == 0) {
+		return nullopt;
 	} else {
-		ifstream fin(ToNative(g_cmdArg.argumunts[0]));
-		if (!fin) {
-			throw runtime_error("Cannot open file");
-		}
-		json = readAllText(fin);
+		return g_cmdArg.argumunts[0];
 	}
-	Live live(json);
+}
+
+
+template <class OutputIt>
+void RunSimulation(Live & live, uint64_t seed, uint64_t first, uint64_t last, OutputIt result) {
+	for (uint64_t i = first; i != last; ++i) {
+		*result++ = live.simulate(i, seed);
+	}
+}
+
+
+int Utf8Main(int argc, char * argv[]) try {
+	int parseRet = ParseArg(argc, argv);
+	if (parseRet != 0 || g_cmdArg.help) {
+		return parseRet;
+	}
+
+	auto inputFilename = GetInputFilename();
+	Live live(inputFilename ? CFileWrapper(*inputFilename, "rb") : stdin);
 	//double sum = 0.;
 	vector<int> results;
-	results.reserve(*g_cmdArg.iters);
-	clock_t t0 = clock();
-	for (int i = 0; i < *g_cmdArg.iters; i++) {
-		results.emplace_back(live.simulate(g_cmdArg.skipIters + i, *g_cmdArg.seed));
-		if (!(~i & 0xfff)) {
-			clock_t t1 = clock();
-			cerr << fixed << setprecision(3) << ((double)(t1 - t0) / CLOCKS_PER_SEC) << endl;
-			t0 = t1;
-		}
+	results.resize(*g_cmdArg.iters);
+
+	auto threads = thread::hardware_concurrency();
+	if (threads == 0) {
+		threads = 1;
 	}
-	cerr << "[ Done ]" << endl;
+	// Last block in current thread
+	auto t0 = steady_clock::now();
+	uint64_t block = *g_cmdArg.iters / threads;
+	vector<Live> lives(threads - 1, live);
+	vector<future<void>> futures;
+	uint64_t id = g_cmdArg.skipIters;
+	auto outit = results.begin();
+	for (auto & l : lives) {
+		futures.emplace_back(async(launch::async, RunSimulation<decltype(outit)>,
+			ref(l), *g_cmdArg.seed, id, id + block, outit));
+		id += block;
+		outit += block;
+	}
+	RunSimulation(live, *g_cmdArg.seed, id, g_cmdArg.skipIters + *g_cmdArg.iters, outit);
+	for (auto & f : futures) {
+		f.get();
+	}
+	auto t1 = steady_clock::now();
+	cout << "Simulation completed in " << duration<double>(t1 - t0).count() << " seconds\n";
+
 	double avg = accumulate(results.begin(), results.end(), 0.) / results.size();
 	double sd = sqrt(accumulate(results.begin(), results.end(), 0., [avg](double s, double x) {
 		return s + (x - avg) * (x - avg);

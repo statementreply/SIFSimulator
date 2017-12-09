@@ -9,6 +9,7 @@
 #include <optional>
 #include <cstdint>
 #include <climits>
+#include <cstdio>
 #include "pcg/pcg_random.hpp"
 #include "rapidjson/document.h"
 #include "note.h"
@@ -29,14 +30,11 @@ using NormalDistribution = std::normal_distribution<RealType>;
 
 class Live {
 public:
-	explicit Live(const std::string & json);
+	explicit Live(FILE * fp);
 	int simulate(uint64_t id, uint64_t seed = UINT64_C(0xcafef00dd15ea5e5));
 
 public:
 	static constexpr double FRAME_TIME = 0.016;
-	static constexpr double PERFECT_WINDOW = 0.032;
-	static constexpr double GREAT_WINDOW = 0.080;
-	static constexpr double GOOD_WINDOW = 0.128;
 	static constexpr std::array<std::pair<int, double>, 7> COMBO_MUL = { {
 		{50, 1},
 		{100, 1.1},
@@ -51,10 +49,17 @@ private:
 	struct LiveNote;
 	struct LiveCard;
 
-	void loadSettings(const rapidjson::Value & value);
-	void loadUnit(const rapidjson::Value & value);
-	void loadCharts(const rapidjson::Value & value);
+	void loadSettings(const rapidjson::Value & json);
+	void loadLiveBonus(const rapidjson::Value & json);
+	void loadUnit(const rapidjson::Value & json);
+	void loadCharts(const rapidjson::Value & json);
+	void processUnit();
 	void processCharts();
+
+	void loadHitError(const rapidjson::Value & json);
+#if !SIMULATE_HIT_TIMING
+	void loadGreatRate(const rapidjson::Value & json);
+#endif
 
 	void initSimulation();
 	void initNextSong();
@@ -127,7 +132,6 @@ private:
 		int beginNote;
 		int endNote;
 		double lastNoteShowTime;
-		double scoreRate;
 		std::vector<LiveNote> notes;
 	};
 
@@ -143,6 +147,11 @@ private:
 		SkillIndexMask      = 0xff,
 	};
 	static constexpr int SKILL_ORDER_SHIFT = 8;
+
+	enum class LiveMode {
+		Normal = 0,
+		MF = 3,
+	};
 
 	struct SkillEvent {
 		double time;
@@ -178,9 +187,13 @@ private:
 	pcg32 rng;
 
 	// Settings
-	int cardNum = 9;
+	LiveMode mode = LiveMode::Normal;
 	double hiSpeed = 0.7;
 	double judgeOffset = 0;
+	double hitPerfectWindow = 0.032;
+	double hitGreatWindow = 0.080;
+	double slidePerfectWindow = hitGreatWindow;
+	double slideGreatWindow = 0.128;
 #if SIMULATE_HIT_TIMING
 	NormalDistribution<> eHit{ 0, 0.015 };
 	NormalDistribution<> eHoldBegin{ 0, 0.015 };
@@ -193,6 +206,10 @@ private:
 	BernoulliDistribution gSlide{ 0.05 };
 	BernoulliDistribution gSlideHoldEnd{ 0.05 };
 #endif
+
+	// Live bonus
+	double liveScoreRate = 1;
+	double liveActivationRate = 1;
 
 	// Unit
 	double unitStatus = 0;
@@ -208,6 +225,7 @@ private:
 	size_t chartIndex = 0;
 	int chartMemberCategory = 0;
 	double chartScoreRate = 1;
+	double chartActivationRate = 1;
 	double time = 0;
 	int hitIndex = 0;
 	double score = 0;

@@ -16,5 +16,5 @@ struct CmdArg {
 extern CmdArg g_cmdArg;
 
 // Modifies option string
-bool parseCmdArg(int argc, char * argv[]);
+bool parseCmdArg(CmdArg & cmdArg, int argc, char * argv[]);
 void printUsage();

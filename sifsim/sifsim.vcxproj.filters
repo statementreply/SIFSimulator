@@ -24,6 +24,9 @@
     <ClCompile Include="cmdarg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="rapidjsonutil.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="nativechar.h">

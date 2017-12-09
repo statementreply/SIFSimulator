@@ -14,10 +14,8 @@ struct Skill {
 	Discharge discharge;
 	Trigger trigger;
 	int level;
-	int maxLevel;
 	std::vector<int> effectTargets;
-	int chainTypeNum;
-	std::vector<std::pair<int, int>> chainTargets;
+	std::vector<int> chainTargets;
 
 	struct LevelData {
 		double effectValue;

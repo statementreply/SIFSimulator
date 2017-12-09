@@ -19,167 +19,260 @@ const auto compareTime = [](const auto & a, const auto & b) {
 };
 
 
-Live::Live(const string & json) {
-	rapidjson::Document doc;
-	if (doc.Parse(json.c_str()).HasParseError()) {
-		throw JsonParseError("Invalid JSON");
+Live::Live(FILE * fp) {
+	rapidjson::Document doc = ParseJsonFile(fp);
+	if (!doc.IsObject()) {
+		throw JsonParseError("Invalid input");
 	}
-	loadSettings(doc);
-	loadUnit(doc);
-	loadCharts(doc);
+	loadSettings(GetJsonMember(doc, "settings"));
+	auto itLiveBonus = doc.FindMember("live_bonus");
+	if (itLiveBonus != doc.MemberEnd()) {
+		loadLiveBonus(itLiveBonus->value);
+	}
+	loadUnit(GetJsonMember(doc, "cards"));
+	loadCharts(GetJsonMember(doc, "lives"));
+	processUnit();
+	processCharts();
 }
 
 
-void Live::loadSettings(const rapidjson::Value & value) {
-	// TODO: load settings
+void Live::loadSettings(const rapidjson::Value & json) {
+	if (!json.IsObject()) {
+		throw JsonParseError("Invalid input");
+	}
 	constexpr double SQRT1_2 = 0.707106781186547524401;
-	cardNum = 9;
-	hiSpeed = 0.7;
-	judgeOffset = 0.;
-	double sigmaHit = 0.015;
-	double sigmaHoldBegin = 0.015;
-	double sigmaHoldEnd = 0.018;
-	double sigmaSlide = 0.030;
+	mode = static_cast<LiveMode>(GetJsonMemberInt(json, "mode"));
+	hiSpeed = GetJsonMemberDouble(json, "note_speed");
+	judgeOffset = TryGetJsonMemberDouble(json, "judge_offset").value_or(0);
 #if SIMULATE_HIT_TIMING
-	eHit.param(NormalDistribution<>::param_type(0, sigmaHit));
-	eHoldBegin.param(NormalDistribution<>::param_type(0, sigmaHoldBegin));
-	eHoldEnd.param(NormalDistribution<>::param_type(0, sigmaHoldEnd));
-	eSlide.param(NormalDistribution<>::param_type(0, sigmaSlide));
+	loadHitError(GetJsonMember(json, "hit_error"));
 #else
-	double gRateHit = erfc(PERFECT_WINDOW / sigmaHit * SQRT1_2);
-	double gRateHoldBegin = erfc(PERFECT_WINDOW / sigmaHoldBegin * SQRT1_2);
-	double gRateHoldEnd = erfc(PERFECT_WINDOW / sigmaHoldEnd * SQRT1_2);
-	double gRateSlide = erfc(GREAT_WINDOW / sigmaSlide * SQRT1_2);
-	double gRateSlideHoldEnd = erfc(GREAT_WINDOW / sigmaHoldEnd * SQRT1_2);
-	gHit.param(BernoulliDistribution::param_type(gRateHit));
-	gHoldBegin.param(BernoulliDistribution::param_type(gRateHoldBegin));
-	gHoldEnd.param(BernoulliDistribution::param_type(gRateHoldEnd));
-	gSlide.param(BernoulliDistribution::param_type(gRateSlide));
-	gSlideHoldEnd.param(BernoulliDistribution::param_type(gRateSlideHoldEnd));
+	auto itHitError = json.FindMember("hit_error");
+	if (itHitError != json.MemberEnd()) {
+		loadHitError(itHitError->value);
+	} else {
+		loadGreatRate(GetJsonMember(json, "hit_great_rate"));
+	}
 #endif
 }
 
 
-void Live::loadUnit(const rapidjson::Value & value) {
-	// TODO: load unit
-	if (9 != cardNum) {
-		throw runtime_error("Invalid number of cards");
-	}
-	unitStatus = 92276;
-	judgeSisStatus = 0;
-	cards.resize(cardNum);
-	for (int i = 0; i < cardNum; i++) {
-		auto & card = cards[i];
-		auto & skill = card.skill;
-		switch (i) {
+#if SIMULATE_HIT_TIMING
 
-		case 2:
-		case 6:
-		case -1:
-		{
-			card.type = 105;
-			card.category = 2;
-			card.attribute = 2;
-			card.status = 0;
-			skill.valid = true;
-			skill.effect = Skill::Effect::Mimic;
-			skill.discharge = Skill::Discharge::Immediate;
-			skill.trigger = Skill::Trigger::NotesCount;
-			card.skillId = ActiveSkill;
-			skill.maxLevel = 8;
-			skill.levels.resize(skill.maxLevel);
-			skill.level = 8;
-			skill.chainTypeNum = 0;
-			auto & level = skill.levels[skill.level - 1];
-			level.effectValue = 0;
-			level.dischargeTime = 0;
-			level.triggerValue = 20;
-			level.activationRate = 43;
-			break;
-		}
-		// case 0:
-		// case 4:
-		case -2:
-		{
-			card.type = 3;
-			card.category = 1;
-			card.attribute = 2;
-			card.status = 0;
-			skill.valid = true;
-			skill.effect = Skill::Effect::ScorePlus;
-			skill.discharge = Skill::Discharge::Immediate;
-			skill.trigger = Skill::Trigger::NotesCount;
-			card.skillId = ActiveSkill;
-			skill.maxLevel = 8;
-			skill.levels.resize(skill.maxLevel);
-			skill.level = 8;
-			skill.chainTypeNum = 0;
-			auto & level = skill.levels[skill.level - 1];
-			level.effectValue = 3620 * 5 / 2;
-			level.dischargeTime = 0;
-			level.triggerValue = 25;
-			level.activationRate = 53;
-			break;
-		}
-		default:
-		{
-			card.type = 1;
-			card.category = 1;
-			card.attribute = 2;
-			card.status = 0;
-			skill.valid = true;
-			skill.effect = Skill::Effect::ScorePlus;
-			skill.discharge = Skill::Discharge::Immediate;
-			skill.trigger = Skill::Trigger::ComboCount;
-			card.skillId = ActiveSkill;
-			skill.maxLevel = 8;
-			skill.levels.resize(skill.maxLevel);
-			skill.level = 8;
-			skill.chainTypeNum = 0;
-			auto & level = skill.levels[skill.level - 1];
-			level.effectValue = 3295 * 5 / 2;
-			level.dischargeTime = 0;
-			level.triggerValue = 24;
-			level.activationRate = 58;
-			break;
-		}
-		}
-		card.skillId |= static_cast<unsigned>(i) << SKILL_ORDER_SHIFT | static_cast<unsigned>(i);
-		card.chainStatus.clear();
-		card.chainStatus.resize(skill.chainTypeNum);
+void Live::loadHitError(const rapidjson::Value & json) {
+	if (!json.IsObject()) {
+		throw JsonParseError("Invalid input");
 	}
-	/*
-	cards[0].skill.trigger = Skill::Trigger::Score;
-	auto & level = cards[0].skill.levels[cards[0].skill.level - 1];
-	level.effectValue = 1500;
-	level.triggerValue = 13500;
-	level.activationRate = 20;
-	//*/
+	const auto readParam = [](const rapidjson::Value & obj) {
+		double mean = TryGetJsonMemberDouble(obj, "mean").value_or(0);
+		double stddev = GetJsonMemberDouble(obj, "stddev");
+		return NormalDistribution<>::param_type(mean, stddev);
+	};
+	eHit.param(readParam(GetJsonMemberObject(json, "hit")));
+	eHoldBegin.param(readParam(GetJsonMemberObject(json, "hold_begin")));
+	eHoldEnd.param(readParam(GetJsonMemberObject(json, "hold_end")));
+	eSlide.param(readParam(GetJsonMemberObject(json, "slide")));
+}
+
+#else
+
+void Live::loadHitError(const rapidjson::Value & json) {
+	if (!json.IsObject()) {
+		throw JsonParseError("Invalid input");
+	}
+	const auto readParam = [](const rapidjson::Value & obj, double window) {
+		constexpr double SQRT1_2 = 0.707106781186547524401;
+		double mean = TryGetJsonMemberDouble(obj, "mean").value_or(0);
+		double stddev = GetJsonMemberDouble(obj, "stddev");
+		double gRate = 0.5 * (erfc((window - mean) / stddev * SQRT1_2)
+			+ erfc((window + mean) / stddev * SQRT1_2));
+		return BernoulliDistribution::param_type(gRate);
+	};
+	gHit.param(readParam(GetJsonMemberObject(json, "hit"), hitPerfectWindow));
+	gHoldBegin.param(readParam(GetJsonMemberObject(json, "hold_begin"), hitPerfectWindow));
+	gHoldEnd.param(readParam(GetJsonMemberObject(json, "hold_end"), hitPerfectWindow));
+	gSlide.param(readParam(GetJsonMemberObject(json, "slide"), slidePerfectWindow));
+	gSlideHoldEnd.param(readParam(GetJsonMemberObject(json, "hold_end"), slidePerfectWindow));
 }
 
 
-void Live::loadCharts(const rapidjson::Value & value) {
-	// TODO: load charts
-	int chartNum = 2;
-	charts.resize(chartNum);
+void Live::loadGreatRate(const rapidjson::Value & json) {
+	if (!json.IsObject()) {
+		throw JsonParseError("Invalid input");
+	}
+	gHit.param(BernoulliDistribution::param_type(GetJsonMemberDouble(json, "hit")));
+	gHoldBegin.param(BernoulliDistribution::param_type(GetJsonMemberDouble(json, "hold_begin")));
+	gHoldEnd.param(BernoulliDistribution::param_type(GetJsonMemberDouble(json, "hold_end")));
+	gSlide.param(BernoulliDistribution::param_type(GetJsonMemberDouble(json, "slide")));
+	gSlideHoldEnd.param(BernoulliDistribution::param_type(GetJsonMemberDouble(json, "hold_end")));
+}
+
+#endif
+
+
+void Live::loadLiveBonus(const rapidjson::Value & json) {
+	if (!json.IsObject()) {
+		throw JsonParseError("Invalid input");
+	}
+	liveScoreRate = TryGetJsonMemberDouble(json, "bonus_score_rate").value_or(1);
+	liveActivationRate = TryGetJsonMemberDouble(json, "bonus_activation_rate").value_or(1);
+	// TODO: load MF guest bonus
+}
+
+
+void Live::loadUnit(const rapidjson::Value & json) {
+	if (!json.IsArray()) {
+		throw JsonParseError("Invalid input");
+	}
+	unitStatus = 0;
+	judgeSisStatus = 0;
+	cards.reserve(json.Size());
+	for (const auto & jsonCard : json.GetArray()) {
+		if (!jsonCard.IsObject()) {
+			throw JsonParseError("Invalid input");
+		}
+		auto itSis = jsonCard.FindMember("school_idol_skill");
+		auto & card = cards.emplace_back();
+		card.type = GetJsonMemberInt(jsonCard, "unit_type");
+		card.category = GetJsonMemberInt(jsonCard, "member_category");
+		card.attribute = GetJsonMemberInt(jsonCard, "attribute");
+		card.baseStatus = GetJsonMemberInt(jsonCard, "base_status");
+		card.status = GetJsonMemberInt(jsonCard, "status");
+		unitStatus += card.status;
+
+		auto & skill = card.skill;
+		auto itSkill = jsonCard.FindMember("skill");
+		if (itSkill == jsonCard.MemberEnd()) {
+			skill.effect = Skill::Effect::None;
+		} else {
+			const auto & jsonSkill = itSkill->value;
+			if (!jsonSkill.IsObject()) {
+				throw JsonParseError("Invalid input");
+			}
+			skill.effect = static_cast<Skill::Effect>(GetJsonMemberInt(jsonSkill, "effect_type"));
+			skill.discharge = static_cast<Skill::Discharge>(GetJsonMemberInt(jsonSkill, "discharge_type"));
+			skill.trigger = static_cast<Skill::Trigger>(GetJsonMemberInt(jsonSkill, "trigger_type"));
+			skill.level = GetJsonMemberInt(jsonSkill, "level");
+			auto itEffectTarget = jsonSkill.FindMember("effect_target");
+			if (itEffectTarget != jsonSkill.MemberEnd()) {
+				// TODO: load effect target
+			}
+			auto itTriggerTarget = jsonSkill.FindMember("trigger_target");
+			if (itTriggerTarget != jsonSkill.MemberEnd()) {
+				// TODO: load trigger target
+			}
+			const auto & jsonLevels = GetJsonMemberArray(jsonSkill, "levels");
+			for (const auto & jsonLevel : jsonLevels.GetArray()) {
+				if (!jsonLevel.IsObject()) {
+					throw JsonParseError("Invalid input");
+				}
+				auto & level = skill.levels.emplace_back();
+				level.effectValue = GetJsonMemberDouble(jsonLevel, "effect_value");
+				level.dischargeTime = GetJsonMemberDouble(jsonLevel, "discharge_time");
+				level.triggerValue = GetJsonMemberInt(jsonLevel, "trigger_value");
+				level.activationRate = GetJsonMemberInt(jsonLevel, "activation_rate");
+			}
+			auto itSisList = jsonCard.FindMember("school_idol_skills");
+			if (itSisList != jsonCard.MemberEnd()) {
+				// Translate SIS effect, assume FC
+				const auto & jsonSisList = itSisList->value;
+				if (!jsonSisList.IsObject()) {
+					throw JsonParseError("Invalid input");
+				}
+				auto charm = TryGetJsonMemberDouble(jsonSisList, "charm");
+				if (charm && skill.effect == Skill::Effect::ScorePlus) {
+					for (auto & level : skill.levels) {
+						level.effectValue += Ceil(level.effectValue * *charm / 100.0);
+					}
+				}
+				auto trick = TryGetJsonMemberDouble(jsonSisList, "trick");
+				if (trick) {
+					judgeSisStatus += Ceil(card.baseStatus * *trick / 100.0);
+				}
+				auto heal = TryGetJsonMemberDouble(jsonSisList, "heal");
+				if (heal && skill.effect == Skill::Effect::HpRestore) {
+					skill.effect = Skill::Effect::ScorePlus;
+					for (auto & level : skill.levels) {
+						level.effectValue *= *heal;
+					}
+				}
+			}
+		}
+	}
+}
+
+
+void Live::processUnit() {
+	unsigned i = 0;
+	for (auto & card : cards) {
+		auto & skill = card.skill;
+		card.skillId = i << SKILL_ORDER_SHIFT | i;
+		i++;
+
+		if (skill.trigger == Skill::Trigger::Chain) {
+			card.chainStatus.resize(skill.chainTargets.size());
+		}
+
+		switch (skill.effect) {
+		case Skill::Effect::GreatToPerfect:
+		case Skill::Effect::GoodToPerfect:
+		case Skill::Effect::ScorePlus:
+		case Skill::Effect::SkillRateUp:
+		case Skill::Effect::Mimic:
+		case Skill::Effect::PerfectBonusRatio:
+		case Skill::Effect::PerfectBonusFixedValue:
+		case Skill::Effect::ComboBonusRatio:
+		case Skill::Effect::ComboBonusFixedValue:
+		case Skill::Effect::SyncStatus:
+		case Skill::Effect::GainSkillLevel:
+		case Skill::Effect::GainStatus:
+			skill.valid = true;
+			break;
+
+		case Skill::Effect::None:
+		case Skill::Effect::HpRestore:
+		default:
+			skill.valid = false;
+			break;
+		}
+	}
+}
+
+
+void Live::loadCharts(const rapidjson::Value & json) {
+	if (!json.IsArray()) {
+		throw JsonParseError("Invalid input");
+	}
+	charts.reserve(json.Size());
 	int totalNotes = 0;
-	for (int k = 0; k < chartNum; k++) {
-		auto & chart = charts[k];
-		chart.memberCategory = 1;
-		chart.scoreRate = (100 + k * 0) / 100.0;
-		int noteNum = jsonObj.Size();
+	for (const auto & jsonChart : json.GetArray()) {
+		if (!jsonChart.IsObject()) {
+			throw JsonParseError("Invalid input");
+		}
+		auto path = TryGetJsonMemberString(jsonChart, "livejson_path");
+		optional<rapidjson::Document> livejson;
+		if (path) {
+			livejson = ParseJsonFile(CFileWrapper(*path, "rb"));
+			if (!livejson->IsArray()) {
+				throw JsonParseError("Invalid livejson file");
+			}
+		}
+		const auto & jsonNotes = path ? *livejson : GetJsonMemberArray(jsonChart, "livejson");
+		auto & chart = charts.emplace_back();
+
+		chart.memberCategory = GetJsonMemberInt(jsonChart, "member_category");
+		int noteNum = jsonNotes.Size();
 		chart.beginNote = totalNotes;
 		totalNotes += noteNum;
 		chart.endNote = totalNotes;
-		chart.notes.resize(noteNum);
-		for (int i = 0; i < noteNum; i++) {
-			const auto & noteObj = GetJsonItemObject(jsonObj, i);
-			auto & note = chart.notes[i];
-			int p = GetJsonMemberInt(noteObj, "position");
-			if (p <= 0 || p > cardNum) {
-				throw runtime_error("Invalid note position");
+		chart.notes.reserve(noteNum);
+		for (const auto & noteObj : jsonNotes.GetArray()) {
+			if (!noteObj.IsObject()) {
+				throw JsonParseError("Invalid input");
 			}
-			note.position = cardNum - p;
+			auto & note = chart.notes.emplace_back();
+
+			note.position = GetJsonMemberInt(noteObj, "position");
 			note.attribute = GetJsonMemberInt(noteObj, "notes_attribute");
 			note.effect(static_cast<Note::Effect>(GetJsonMemberInt(noteObj, "effect")));
 			double t = GetJsonMemberDouble(noteObj, "timing_sec");
@@ -197,21 +290,27 @@ void Live::loadCharts(const rapidjson::Value & value) {
 		}
 		chart.lastNoteShowTime = chart.notes.empty() ? 0 : chart.notes.back().showTime;
 	}
-
-	processCharts();
 }
 
 
 void Live::processCharts() {
-	chartHits.resize(charts.size());
+	int cardNum = static_cast<int>(cards.size());
+	chartHits.reserve(charts.size());
 	combos.reserve(accumulate(charts.begin(), charts.end(), size_t{ 0 }, [](size_t x, const auto & c) {
 		return x + c.notes.size();
 	}));
-	for (size_t k = 0; k < charts.size(); k++) {
-		auto & chart = charts[k];
-		auto & hits = chartHits[k];
+	for (auto & chart : charts) {
+		auto & hits = chartHits.emplace_back();
 
-		hits.clear();
+		// In livejson, leftmost = 9, rightmost = 1
+		// Transform to leftmost = 0, rightmost = 8
+		for (auto & note : chart.notes) {
+			if (note.position <= 0 || note.position > cardNum) {
+				throw runtime_error("Invalid note position");
+			}
+			note.position = cardNum - note.position;
+		}
+
 		for (size_t i = 0; i < chart.notes.size(); i++) {
 			const auto & note = chart.notes[i];
 			hits.emplace_back(static_cast<int>(i), note, false);
@@ -352,19 +451,21 @@ void Live::initNextSong() {
 
 
 void Live::initForEverySong() {
+	assert(activationMod == chartActivationRate);
+	assert(!judgeCount);
 	const auto & chart = charts[chartIndex];
 	status = unitStatus;
 	time = 0;
 	hitIndex = 0;
 	chartMemberCategory = chart.memberCategory;
-	chartScoreRate = chart.scoreRate;
-	assert(!judgeCount);
-	assert(activationMod == 1);
+	chartScoreRate = liveScoreRate;
+	chartActivationRate = liveActivationRate;
+	activationMod = chartActivationRate;
 }
 
 
 void Live::shuffleSkills() {
-	for (int i = cardNum; i > 1; --i) {
+	for (uint32_t i = static_cast<uint32_t>(cards.size()); i > 1; --i) {
 		swapBits(cards[i - 1].skillId, cards[rng(i)].skillId, SkillOrderMask);
 	}
 }
@@ -379,7 +480,7 @@ void Live::initSkills() {
 		card.currentSkillLevel = skill.level;
 		card.isActive = false;
 		card.nextTrigger = 0;
-		card.remainingChainTypeNum = skill.chainTypeNum;
+		card.remainingChainTypeNum = static_cast<int>(card.chainStatus.size());
 		fill(card.chainStatus.begin(), card.chainStatus.end(), 1);
 	}
 	initSkillsForEverySong();
@@ -456,14 +557,9 @@ void Live::simulateHitError() {
 			} else {
 				e = eHit(rng);
 			}
-			if (hit.isSlide) {
-				if (!(fabs(e) < GOOD_WINDOW)) {
-					e = copysign(GOOD_WINDOW, e);
-				}
-			} else {
-				if (!(fabs(e) < GREAT_WINDOW)) {
-					e = copysign(GREAT_WINDOW, e);
-				}
+			double greatWindow = hit.isSlide ? slideGreatWindow : hitGreatWindow;
+			if (!(fabs(e) < greatWindow)) {
+				e = copysign(greatWindow, e);
 			}
 			if (hit.isHoldEnd) {
 				double minTime = note.holdBeginHitTime + FRAME_TIME;
@@ -473,11 +569,8 @@ void Live::simulateHitError() {
 				}
 			}
 			hit.time = judgeTime + e;
-			if (hit.isSlide) {
-				hit.isPerfect = (fabs(e) < GREAT_WINDOW);
-			} else {
-				hit.isPerfect = (fabs(e) < PERFECT_WINDOW);
-			}
+			double perfectWindow = hit.isSlide ? slidePerfectWindow : hitPerfectWindow;
+			hit.isPerfect = (fabs(e) < perfectWindow);
 			if (hit.isHoldBegin) {
 				note.isHoldBeginPerfect = hit.isPerfect;
 				note.holdBeginHitTime = hit.time;
@@ -550,13 +643,7 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 	if (card.attribute == note.attribute) {
 		noteScore *= 1.1;
 	}
-#if USE_SSE_4_1_ROUND
-	// For all IEEE 754 binary64 |x| < 2^53, floor(rn(x / 100)) == floor(rn(x * rn(0.01)))
-	//noteScore = FloorSse4_1(noteScore * 0.01);
-	noteScore = FloorSse4_1(noteScore / 100.);
-#else
-	noteScore = floor(noteScore / 100.);
-#endif
+	noteScore = Floor(noteScore / 100.);
 	// Only judge hold end accuracy?
 	if (isPerfect) {
 		noteScore += perfectBonusFixed;
@@ -565,11 +652,7 @@ double Live::computeScore(const LiveNote & note, bool isPerfect) const {
 	// L7_84 = L12_12.Combo.applyFixedValueBonus(L7_84)
 	// L8_117 = L19_19.SkillEffect.ScoreBonus.apply(L9_118)
 	noteScore *= chartScoreRate;
-#if USE_SSE_4_1_ROUND
-	return CeilSse4_1(noteScore);
-#else
-	return ceil(noteScore);
-#endif
+	return Ceil(noteScore);
 }
 
 
@@ -609,9 +692,8 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 		break;
 
 	case Skill::Effect::HpRestore:
-		// TODO: HpRestore SIS handling
-		//     a) Convert to ScorePlus in LoadUnit?
-		//     b) Ignore, require preprocessed input?
+		assert(false);
+		throw logic_error("Bug detected. Please contact software developer.\n  (" FILE_LOC ")");
 		break;
 
 	case Skill::Effect::ScorePlus:
@@ -714,8 +796,8 @@ void Live::skillOff(LiveCard & card) {
 		break;
 
 	case Skill::Effect::SkillRateUp:
-		// Klab bug?
-		activationMod = 1;
+		// Klab bug? Reset all buff
+		activationMod = chartActivationRate;
 		break;
 
 	case Skill::Effect::Mimic:
@@ -724,13 +806,13 @@ void Live::skillOff(LiveCard & card) {
 		break;
 
 	case Skill::Effect::PerfectBonusRatio:
-		// Klab bug?
+		// Klab bug? Out of order
 		perfectBonusRateQueue.pop_front();
 		perfectBonusRate = accumulate(perfectBonusRateQueue.begin(), perfectBonusRateQueue.end(), 1.0);
 		break;
 
 	case Skill::Effect::PerfectBonusFixedValue:
-		// Klab bug?
+		// Klab bug? Out of order
 		perfectBonusFixedQueue.pop_front();
 		perfectBonusFixed = accumulate(perfectBonusFixedQueue.begin(), perfectBonusFixedQueue.end(), 0.0);
 		break;
@@ -896,14 +978,12 @@ void Live::updateChain(const LiveCard & otherCard) {
 			continue;
 		}
 		const auto & chainSkill = chainCard.skill;
-		auto type = find_if(chainSkill.chainTargets.begin(), chainSkill.chainTargets.end(),
-			[&otherCard](const auto & a) {
-			return a.first == otherCard.type;
-		});
+		auto type = find(chainSkill.chainTargets.begin(), chainSkill.chainTargets.end(),
+			otherCard.type);
 		if (type == chainSkill.chainTargets.end()) {
 			continue;
 		}
-		const auto & index = type->second;
+		const auto & index = type - chainSkill.chainTargets.begin();
 		chainCard.remainingChainTypeNum -= chainCard.chainStatus[index];
 		chainCard.chainStatus[index] = 0;
 		if (!chainCard.remainingChainTypeNum && !chainCard.isActive) {

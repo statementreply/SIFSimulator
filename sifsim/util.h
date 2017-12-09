@@ -8,6 +8,7 @@
 #include <queue>
 #include <utility>
 #include <type_traits>
+#include <stdexcept>
 
 
 #define PREPROCESSOR_STRING(x) #x
@@ -17,8 +18,12 @@
 
 class CFileWrapper {
 public:
-	CFileWrapper(const char * filename, const char * mode)
-		: fp(NativeFopen(ToNative(filename).c_str(), ToNative(mode).c_str())) {}
+	CFileWrapper(const char * filename, const char * mode) {
+		fp = NativeFopen(ToNative(filename).c_str(), ToNative(mode).c_str());
+		if (!fp) {
+			throw std::runtime_error("Cannot open file");
+		}
+	}
 	~CFileWrapper() { if (fp) std::fclose(fp); }
 	CFileWrapper(const CFileWrapper &) = delete;
 	CFileWrapper & operator=(const CFileWrapper &) = delete;
@@ -106,13 +111,23 @@ typename std::enable_if<
 
 #if USE_SSE_4_1_ROUND
 #include <smmintrin.h>
-inline double FloorSse4_1(double x) {
+inline double Floor(double x) {
 	__m128d m = _mm_set_sd(x);
 	return _mm_cvtsd_f64(_mm_floor_sd(m, m));
 }
 
-inline double CeilSse4_1(double x) {
+inline double Ceil(double x) {
 	__m128d m = _mm_set_sd(x);
 	return _mm_cvtsd_f64(_mm_ceil_sd(m, m));
+}
+#else
+#include <cmath>
+inline double Floor(double x) {
+	return std::floor(x);
+}
+
+inline double Ceil(double x) {
+	return std::ceil(x);
+
 }
 #endif
