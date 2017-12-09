@@ -1,0 +1,87 @@
+{
+    "// Encoding": "// UTF-8",
+    "// Tag description": {
+        "//": "Comment",
+        "[[SINGLE_CHOICE]]": "Provide exactly one of them",
+        "[[OPTIONAL]]": "May be omitted or be null",
+        "[[ADVANCED]]": "For advanced users only"
+    },
+    "settings": {
+        "note_speed": 0.7,
+        "// judge_offset": "// {sif_judge_setting} * note_speed / (-400)",
+        "[[OPTIONAL]] judge_offset": 0,
+        "// judge_window": "[16, 40, 64] * max(note_speed, 0.8) / 400",
+        "// hit_error, hit_great_rate": [
+            "// If configured to simulate hit timing, provide hit_error",
+            "//     otherwise, provide either one"
+        ],
+        "// hit_error": "// Mean and SD of hit error (seconds)",
+        "[[SINGLE_CHOICE]] hit_error": {
+            "// mu:": "// Positive = hit late, negative = hit early",
+            "[[OPTIONAL]] mu": 0,
+            "sigma": {
+                "hit": 0.016,
+                "hold_begin": 0.016,
+                "hold_end": 0.02,
+                "slide": 0.04
+            }
+        },
+        "// hit_great_rate": "// Great rate of hits",
+        "[[SINGLE_CHOICE]] hit_great_rate": {
+            "hit": 0.045,
+            "hold_begin": 0.045,
+            "hold_end": 0.11,
+            "slide": 0.045,
+            "slide_hold_end": 0
+        }
+    },
+    "// live_bonus": "// MF/CF live bonus",
+    "[[OPTIONAL]] live_bonus": {
+        "[[OPTIONAL]] bonus_score_rate": 1.1,
+        "[[OPTIONAL]] bonus_activation_rate": 1.1,
+        "[[OPTIONAL]] guest_bonus": [
+            {
+                "probability": 1,
+                "[[OPTIONAL]] bonus_score_rate": 1.1,
+                "[[OPTIONAL]] bonus_activation_rate": 1.1
+            }
+        ]
+    },
+    "// card_skill_order": "// Advanced option: skill trigger order",
+    "// card_skill_order example": [0, 1, 2, 3, 4, 5, 6, 7, 8],
+    "[[ADVANCED]] [[OPTIONAL]] card_skill_order": null,
+    "cards": [
+        {
+            "// _": "// Leftmost"
+        },
+        {},
+        {},
+        {},
+        {
+            "// _": "// Center"
+        },
+        {},
+        {},
+        {},
+        {
+            "// _": "// Rightmost"
+        }
+    ],
+    "lives": [
+        {
+            "member_category": 1,
+            "// livejson_path, livejson": "// Provide either one",
+            "[[SINGLE_CHOICE]] livejson_path": "./livejson/Live_s0812.json",
+            "[[SINGLE_CHOICE]] livejson": [
+                {
+                    "timing_sec": 2.052,
+                    "notes_attribute": 1,
+                    "notes_level": 1,
+                    "effect": 3,
+                    "effect_value": 1.081,
+                    "position": 6
+                }
+            ]
+        }
+    ]
+}
