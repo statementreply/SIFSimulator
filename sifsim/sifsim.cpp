@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <fstream>
 #include <random>
+#include <algorithm>
 #include <numeric>
 #include <thread>
 #include <future>
@@ -154,7 +155,7 @@ int NativeMain(int argc, NativeChar * nativeArgv[]) {
 #else
 
 int main(int argc, char * argv[]) {
-	return Utf8Main();
+	return Utf8Main(argc, argv);
 }
 
 #endif
