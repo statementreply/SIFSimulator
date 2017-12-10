@@ -174,7 +174,8 @@ void Live::loadUnit(const rapidjson::Value & json) {
 		if (!jsonCard.IsObject()) {
 			throw JsonParseError("Invalid input: cards");
 		}
-		auto & card = cards.emplace_back();
+		cards.emplace_back();
+		auto & card = cards.back();
 		card.type = GetJsonMemberInt(jsonCard, "unit_type");
 		card.category = GetJsonMemberInt(jsonCard, "member_category");
 		card.attribute = GetJsonMemberInt(jsonCard, "attribute");
@@ -226,7 +227,8 @@ void Live::loadUnit(const rapidjson::Value & json) {
 				if (!jsonLevel.IsObject()) {
 					throw JsonParseError("Invalid input: cards[].skill.levels");
 				}
-				auto & level = skill.levels.emplace_back();
+				skill.levels.emplace_back();
+				auto & level = skill.levels.back();
 				level.effectValue = GetJsonMemberDouble(jsonLevel, "effect_value");
 				level.dischargeTime = GetJsonMemberDouble(jsonLevel, "discharge_time");
 				level.triggerValue = GetJsonMemberInt(jsonLevel, "trigger_value");
@@ -349,7 +351,8 @@ void Live::loadCharts(const rapidjson::Value & json) {
 			}
 		}
 		const auto & jsonNotes = path ? *livejson : GetJsonMemberArray(jsonChart, "livejson");
-		auto & chart = charts.emplace_back();
+		charts.emplace_back();
+		auto & chart = charts.back();
 
 		chart.memberCategory = GetJsonMemberInt(jsonChart, "member_category");
 		int noteNum = jsonNotes.Size();
@@ -361,7 +364,8 @@ void Live::loadCharts(const rapidjson::Value & json) {
 			if (!noteObj.IsObject()) {
 				throw JsonParseError("Invalid livejson");
 			}
-			auto & note = chart.notes.emplace_back();
+			chart.notes.emplace_back();
+			auto & note = chart.notes.back();
 
 			note.position = GetJsonMemberInt(noteObj, "position");
 			note.attribute = GetJsonMemberInt(noteObj, "notes_attribute");
@@ -391,7 +395,8 @@ void Live::processCharts() {
 		return x + c.notes.size();
 	}));
 	for (auto & chart : charts) {
-		auto & hits = chartHits.emplace_back();
+		chartHits.emplace_back();
+		auto & hits = chartHits.back();
 
 		// In livejson, leftmost = 9, rightmost = 1
 		// Transform to leftmost = 0, rightmost = 8
@@ -968,7 +973,7 @@ void Live::skillSetNextTrigger(LiveCard & card) {
 		auto & queue, const auto & curr, bool isCurrTransformed,
 		const auto & transform, const auto & pastEnd
 		) {
-		static_assert(is_same_v<decay_t<decltype(pastEnd(0))>, bool>, "pastEnd should return bool");
+		static_assert(is_same<decay_t<decltype(pastEnd(0))>, bool>::value, "pastEnd should return bool");
 		const auto satisfied = [&](auto trigger) {
 			if (isCurrTransformed) {
 				return !pastEnd(trigger) && curr >= transform(trigger);
