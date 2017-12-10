@@ -84,10 +84,10 @@ double GetJsonMemberDouble(const rapidjson::Value & obj, const char * name) {
 	return member.GetDouble();
 }
 
-std::optional<double> TryGetJsonMemberDouble(const rapidjson::Value & obj, const char * name) {
+optional<double> TryGetJsonMemberDouble(const rapidjson::Value & obj, const char * name) {
 	auto member = obj.FindMember(name);
 	if (member == obj.MemberEnd() || member->value.IsNull()) {
-		return std::nullopt;
+		return nullopt;
 	}
 	if (!member->value.IsNumber()) {
 		throw JsonParseError("JSON: Invalid type: "s + name);
@@ -96,10 +96,10 @@ std::optional<double> TryGetJsonMemberDouble(const rapidjson::Value & obj, const
 }
 
 
-std::optional<const char *> TryGetJsonMemberString(const rapidjson::Value & obj, const char * name) {
+optional<const char *> TryGetJsonMemberString(const rapidjson::Value & obj, const char * name) {
 	auto member = obj.FindMember(name);
 	if (member == obj.MemberEnd() || member->value.IsNull()) {
-		return nullptr;
+		return nullopt;
 	}
 	if (!member->value.IsString()) {
 		throw JsonParseError("JSON: Invalid type: "s + name);

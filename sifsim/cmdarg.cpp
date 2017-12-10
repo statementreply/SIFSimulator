@@ -54,7 +54,8 @@ optional<uint64_t> strtou64(const char * str, int radix = 10) {
 	ErrNoGuard _e;
 	char * pend;
 	auto u = strtoull(str, &pend, radix);
-	static_assert(numeric_limits<decltype(u)>::max() >= numeric_limits<uint64_t>::max());
+	static_assert(numeric_limits<decltype(u)>::max() >= numeric_limits<uint64_t>::max(),
+		"u should be larger than uint64_t");
 	if (pend == str) return nullopt;
 	if (errno == ERANGE) return nullopt;
 	if (*pend) return nullopt;

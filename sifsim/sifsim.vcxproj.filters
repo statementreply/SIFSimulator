@@ -59,5 +59,8 @@
     <ClInclude Include="cmdarg.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="optional.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -4,14 +4,15 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include <optional>
+#include "optional.h"
+
 
 struct CmdArg {
 	bool help = false;
-	std::optional<int> iters;
+	optional<int> iters;
 	uint64_t skipIters = 0;
-	std::optional<int> threads = 0;
-	std::optional<uint64_t> seed;
+	optional<int> threads = 0;
+	optional<uint64_t> seed;
 	std::vector<char *> argumunts;
 };
 

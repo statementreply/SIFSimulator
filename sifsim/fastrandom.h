@@ -104,7 +104,7 @@ namespace FastRandom {
 			typedef NormalDistribution distribution_type;
 
 			explicit param_type(RealType mean = 0., RealType stddev = 1.) {
-				static double _initFlag = _initTables();
+				[[maybe_unused]] static double _initFlag = _initTables();
 				_mean = mean;
 				_stddev = stddev;
 			}

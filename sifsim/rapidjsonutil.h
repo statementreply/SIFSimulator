@@ -5,7 +5,7 @@
 #include <string>
 #include <stdexcept>
 #include <utility>
-#include <optional>
+#include "optional.h"
 #include <cstdio>
 
 
@@ -29,6 +29,6 @@ int GetJsonMemberInt(const rapidjson::Value & obj, const char * name);
 
 double GetJsonItemDouble(const rapidjson::Value & obj, rapidjson::SizeType index);
 double GetJsonMemberDouble(const rapidjson::Value & obj, const char * name);
-std::optional<double> TryGetJsonMemberDouble(const rapidjson::Value & obj, const char * name);
+optional<double> TryGetJsonMemberDouble(const rapidjson::Value & obj, const char * name);
 
-std::optional<const char *> TryGetJsonMemberString(const rapidjson::Value & obj, const char * name);
+optional<const char *> TryGetJsonMemberString(const rapidjson::Value & obj, const char * name);

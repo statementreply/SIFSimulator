@@ -156,6 +156,7 @@
     <ClInclude Include="card.h" />
     <ClInclude Include="cmdarg.h" />
     <ClInclude Include="configure.h" />
+    <ClInclude Include="optional.h" />
     <ClInclude Include="fastrandom.h" />
     <ClInclude Include="live.h" />
     <ClInclude Include="nativechar.h" />

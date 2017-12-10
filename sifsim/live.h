@@ -6,7 +6,7 @@
 #include <deque>
 #include <string>
 #include <tuple>
-#include <optional>
+#include "optional.h"
 #include <cstdint>
 #include <climits>
 #include <cstdio>
@@ -116,8 +116,8 @@ private:
 		std::vector<int> chainStatus;
 		int mimicSkillIndex;
 		int mimicSkillLevel;
-		std::optional<double> buffedStatus;
-		std::optional<double> syncStatus;
+		optional<double> buffedStatus;
+		optional<double> syncStatus;
 
 		const Skill::LevelData & skillLevel() const {
 			return skill.levels[currentSkillLevel - 1];
