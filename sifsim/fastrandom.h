@@ -78,7 +78,8 @@ namespace FastRandom {
 	private:
 		template<class Generator>
 		result_type _eval(Generator & g, const param_type & param) const {
-			static_assert(g.min() == 0 && g.max() >= std::numeric_limits<uint32_t>::max(),
+			static_assert(Generator::min() == 0
+				&& Generator::max() >= std::numeric_limits<uint32_t>::max(),
 				"UniformRandomBitGenerator for FastRandom shall generate at least 32 bits per call");
 			for (;;) {
 				uint32_t u = static_cast<uint32_t>(g());
@@ -188,7 +189,7 @@ namespace FastRandom {
 				constexpr double X_SCALE = 2. / (std::numeric_limits<uint32_t>::max() + 1.);
 				uint32_t r = static_cast<uint32_t>(g());
 				uint32_t index = r & ZIGNOR_INDEX_MASK;
-				uint32_t uvalue = r & ZIGNOR_VALUE_MASK | ZIGNOR_VALUE_OFFSET;
+				uint32_t uvalue = (r & ZIGNOR_VALUE_MASK) | ZIGNOR_VALUE_OFFSET;
 				int32_t value = reinterpret_cast<const int32_t &>(uvalue);
 				if (static_cast<uint32_t>(abs(value)) < ZIGNOR_THRES(index)) {
 					return value * ZIGNOR_SCALE(index);

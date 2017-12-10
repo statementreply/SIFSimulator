@@ -45,7 +45,6 @@ void Live::loadSettings(const rapidjson::Value & json) {
 	if (!json.IsObject()) {
 		throw JsonParseError("Invalid input: settings");
 	}
-	constexpr double SQRT1_2 = 0.707106781186547524401;
 	mode = static_cast<LiveMode>(GetJsonMemberInt(json, "mode"));
 	hiSpeed = GetJsonMemberDouble(json, "note_speed");
 	judgeOffset = TryGetJsonMemberDouble(json, "judge_offset").value_or(0);
@@ -175,7 +174,6 @@ void Live::loadUnit(const rapidjson::Value & json) {
 		if (!jsonCard.IsObject()) {
 			throw JsonParseError("Invalid input: cards");
 		}
-		auto itSis = jsonCard.FindMember("school_idol_skill");
 		auto & card = cards.emplace_back();
 		card.type = GetJsonMemberInt(jsonCard, "unit_type");
 		card.category = GetJsonMemberInt(jsonCard, "member_category");
@@ -589,6 +587,11 @@ void Live::initSkillsForNextSong() {
 		assert(card.currentSkillLevel == skill.level);
 		assert(!card.isActive);
 		switch (skill.trigger) {
+		case Skill::Trigger::None:
+		case Skill::Trigger::Score:
+		case Skill::Trigger::PerfectCount:
+		case Skill::Trigger::StarPerfect:
+			break;
 
 		case Skill::Trigger::Time:
 			card.nextTrigger = 0;
@@ -774,6 +777,8 @@ void Live::skillOn(LiveCard & card, bool isMimic) {
 	const auto & level = isMimic ? skill.levels[card.mimicSkillLevel - 1] : card.skillLevel();
 
 	switch (skill.effect) {
+	case Skill::Effect::None:
+		break;
 
 	case Skill::Effect::GreatToPerfect:
 	case Skill::Effect::GoodToPerfect:
@@ -877,6 +882,8 @@ void Live::skillOff(LiveCard & card) {
 	const auto & skill = isMimic ? cards[card.mimicSkillIndex].skill : card.skill;
 
 	switch (skill.effect) {
+	case Skill::Effect::None:
+		break;
 
 	case Skill::Effect::GreatToPerfect:
 	case Skill::Effect::GoodToPerfect:
@@ -886,6 +893,12 @@ void Live::skillOff(LiveCard & card) {
 			// Technically not the same as SIF (i.e. floating point addition not associative)
 			status -= judgeSisStatus;
 		}
+		break;
+
+	case Skill::Effect::HpRestore:
+		break;
+
+	case Skill::Effect::ScorePlus:
 		break;
 
 	case Skill::Effect::SkillRateUp:
@@ -992,6 +1005,8 @@ void Live::skillSetNextTrigger(LiveCard & card) {
 	};
 
 	switch (skill.trigger) {
+	case Skill::Trigger::None:
+		break;
 
 	case Skill::Trigger::Time:
 	{
