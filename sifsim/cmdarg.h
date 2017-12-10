@@ -1,5 +1,6 @@
 #pragma once
 
+#include "configure.h"
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -9,6 +10,7 @@ struct CmdArg {
 	bool help = false;
 	std::optional<int> iters;
 	uint64_t skipIters = 0;
+	std::optional<int> threads = 0;
 	std::optional<uint64_t> seed;
 	std::vector<char *> argumunts;
 };

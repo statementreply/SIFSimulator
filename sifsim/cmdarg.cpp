@@ -17,9 +17,10 @@ Run LLSIF live score simulation.
 
 With no FILE, or when FILE is -, read standard input.
 
-  -n, --iters=NUM         run NUM iterations
+  -n, --iters=NUM         run NUM simulations [default: )" MACRO_STRING(SIFSIM_DEFAULT_ITERS) R"(]
   -s, --seed=NUM          set random seed to NUM
       --skip-iters=NUM    skip NUM iterations before simulation
+      --threads=NUM       run in NUM theards [default: 0 (auto)]
   -h, --help              display this help and exit
 )";
 }
@@ -36,7 +37,7 @@ private:
 };
 
 
-optional<int> strtoi(const char * str, int radix) {
+optional<int> strtoi(const char * str, int radix = 10) {
 	ErrNoGuard _e;
 	char * pend;
 	auto i = strtol(str, &pend, radix);
@@ -49,7 +50,7 @@ optional<int> strtoi(const char * str, int radix) {
 }
 
 
-optional<uint64_t> strtou64(const char * str, int radix) {
+optional<uint64_t> strtou64(const char * str, int radix = 10) {
 	ErrNoGuard _e;
 	char * pend;
 	auto u = strtoull(str, &pend, radix);
@@ -125,7 +126,7 @@ bool parseCmdArg(CmdArg & cmdArg, int argc, char * argv[]) {
 			haveArg = true;
 			pval = locateArg(isLongOpt, parg, i);
 			if (!pval) goto _noArg;
-			auto n = strtoi(pval, 10);
+			auto n = strtoi(pval);
 			if (!n || *n <= 0) goto _badArg;
 			cmdArg.iters = *n;
 
@@ -142,9 +143,21 @@ bool parseCmdArg(CmdArg & cmdArg, int argc, char * argv[]) {
 			haveArg = true;
 			pval = locateArg(isLongOpt, parg, i);
 			if (!pval) goto _noArg;
-			auto u = strtou64(pval, 0);
+			auto u = strtou64(pval);
 			if (!u) goto _badArg;
 			cmdArg.skipIters = *u;
+
+		} else if (strcmp(parg, "threads") == 0) {
+			haveArg = true;
+			pval = locateArg(isLongOpt, parg, i);
+			if (!pval) goto _noArg;
+			auto n = strtoi(pval);
+			if (!n || *n < 0) goto _badArg;
+			if (*n == 0) {
+				cmdArg.threads = nullopt;
+			} else {
+				cmdArg.threads = *n;
+			}
 
 		} else {
 			goto _badOpt;

@@ -2,6 +2,14 @@
 
 // Simulation config
 
+#ifndef SIFSIM_DEFAULT_ITERS
+#if NDEBUG
+#define SIFSIM_DEFAULT_ITERS 100000
+#else
+#define SIFSIM_DEFAULT_ITERS 100
+#endif
+#endif
+
 #ifndef SIMULATE_HIT_TIMING
 #define SIMULATE_HIT_TIMING 0
 #endif

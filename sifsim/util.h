@@ -11,9 +11,9 @@
 #include <stdexcept>
 
 
-#define PREPROCESSOR_STRING(x) #x
-#define PREPROCESSOR_STRING_MACRO(x) PREPROCESSOR_STRING(x)
-#define FILE_LOC __FILE__ ":" PREPROCESSOR_STRING_MACRO(__LINE__)
+#define MACRO_STRING_1(x) #x
+#define MACRO_STRING(x) MACRO_STRING_1(x)
+#define FILE_LOC __FILE__ ":" MACRO_STRING(__LINE__)
 
 
 class CFileWrapper {

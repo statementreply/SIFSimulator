@@ -51,6 +51,7 @@ private:
 
 	void loadSettings(const rapidjson::Value & json);
 	void loadLiveBonus(const rapidjson::Value & json);
+	void loadSkillOrder(const rapidjson::Value & json);
 	void loadUnit(const rapidjson::Value & json);
 	void loadCharts(const rapidjson::Value & json);
 	void processUnit();
@@ -210,6 +211,9 @@ private:
 	// Live bonus
 	double liveScoreRate = 1;
 	double liveActivationRate = 1;
+
+	// Skill order
+	std::vector<int> skillOrder;
 
 	// Unit
 	double unitStatus = 0;

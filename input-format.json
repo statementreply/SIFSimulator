@@ -16,6 +16,11 @@
         "// judge_offset": "// {sif_judge_setting} * note_speed / (-400)",
         "[[OPTIONAL]] judge_offset": 0,
         "// judge_window": "[16, 40, 64] * max(note_speed, 0.8) / 400",
+        "[[OPTIONAL]] judge_window" : [
+            0.032,
+            0.08,
+            0.128
+        ],
         "// hit_error, hit_great_rate": [
             "// If configured to simulate hit timing, provide hit_error",
             "//     otherwise, provide either one"
@@ -56,15 +61,25 @@
         "[[OPTIONAL]] bonus_activation_rate": 1.1,
         "[[OPTIONAL]] guest_bonus": [
             {
-                "probability": 1,
-                "[[OPTIONAL]] bonus_score_rate": 1.1,
-                "[[OPTIONAL]] bonus_activation_rate": 1.1
+                "probability": 0.1,
+                "// effects": "// Unordered combination of guest bonus",
+                "effects": [
+                    {
+                        "bonus_score_rate": 1.1
+                    },
+                    {
+                        "bonus_activation_rate": 1.1
+                    }
+                ]
             }
         ]
     },
-    "// card_skill_order": "// Advanced option: skill trigger order",
-    "// card_skill_order example": [0, 1, 2, 3, 4, 5, 6, 7, 8],
-    "[[ADVANCED]] [[OPTIONAL]] card_skill_order": null,
+    "// skill_trigger_priority": [
+        "// Advanced option: skill trigger order",
+        "// Default: randomize for each simulation run"
+    ],
+    "// skill_trigger_priority example": [0, 1, 2, 3, 4, 5, 6, 7, 8],
+    "[[ADVANCED]] [[OPTIONAL]] skill_trigger_priority": null,
     "cards": [
         {
             "// _": "// Leftmost",
@@ -80,10 +95,10 @@
                 "discharge_type": 1,
                 "trigger_type": 6,
                 "level": 1,
-                "// effect_target": "// Array of card index (0..8)",
-                "[[OPTIONAL]] effect_target": null,
-                "// trigger_target": "// Array of unit_type",
-                "[[OPTIONAL]] trigger_target": null,
+                "// effect_targets": "// Array of card index (0..8)",
+                "[[OPTIONAL]] effect_targets": null,
+                "// trigger_targets": "// Array of unit_type",
+                "[[OPTIONAL]] trigger_targets": null,
                 "levels": [
                     {
                         "// _": "// Level 1",

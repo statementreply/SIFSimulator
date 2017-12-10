@@ -27,6 +27,7 @@ const rapidjson::Value & GetJsonMemberArray(const rapidjson::Value & obj, const 
 
 int GetJsonMemberInt(const rapidjson::Value & obj, const char * name);
 
+double GetJsonItemDouble(const rapidjson::Value & obj, rapidjson::SizeType index);
 double GetJsonMemberDouble(const rapidjson::Value & obj, const char * name);
 std::optional<double> TryGetJsonMemberDouble(const rapidjson::Value & obj, const char * name);
 

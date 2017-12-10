@@ -27,11 +27,7 @@ int ParseArg(int argc, char * argv[]) {
 		}
 	}
 	if (!g_cmdArg.iters) {
-#if NDEBUG
-		g_cmdArg.iters = 100000;
-#else
-		g_cmdArg.iters = 100;
-#endif
+		g_cmdArg.iters = SIFSIM_DEFAULT_ITERS;
 	}
 	if (!g_cmdArg.seed) {
 #if NDEBUG
@@ -60,8 +56,16 @@ optional<const char *> GetInputFilename() {
 
 template <class OutputIt>
 void RunSimulation(Live & live, uint64_t seed, uint64_t first, uint64_t last, OutputIt result) {
-	for (uint64_t i = first; i != last; ++i) {
-		*result++ = live.simulate(i, seed);
+	try {
+		for (uint64_t i = first; i != last; ++i) {
+			*result++ = live.simulate(i, seed);
+		}
+	} catch (exception & e) {
+		cerr << "Error: " << e.what() << endl;
+		quick_exit(1);
+	} catch (...) {
+		cerr << "An unknown error occured" << endl;
+		quick_exit(1);
 	}
 }
 
@@ -78,7 +82,7 @@ int Utf8Main(int argc, char * argv[]) try {
 	vector<int> results;
 	results.resize(*g_cmdArg.iters);
 
-	auto threads = thread::hardware_concurrency();
+	auto threads = g_cmdArg.threads.value_or(thread::hardware_concurrency());
 	if (threads == 0) {
 		threads = 1;
 	}
@@ -100,7 +104,8 @@ int Utf8Main(int argc, char * argv[]) try {
 		f.get();
 	}
 	auto t1 = steady_clock::now();
-	cout << "Simulation completed in " << duration<double>(t1 - t0).count() << " seconds\n";
+	clog << *g_cmdArg.iters << " simulations completed in "
+		<< duration<double>(t1 - t0).count() << " seconds\n";
 
 	double avg = accumulate(results.begin(), results.end(), 0.) / results.size();
 	double sd = sqrt(accumulate(results.begin(), results.end(), 0., [avg](double s, double x) {
