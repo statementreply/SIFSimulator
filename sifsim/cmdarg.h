@@ -11,7 +11,7 @@ struct CmdArg {
 	bool help = false;
 	optional<int> iters;
 	uint64_t skipIters = 0;
-	optional<int> threads = 0;
+	optional<int> threads = nullopt;
 	optional<uint64_t> seed;
 	std::vector<char *> argumunts;
 };
