@@ -53,7 +53,7 @@ public:
 
 	template <class U, class V>
 	constexpr bool operator ()(U && u, V && v) const {
-		return comp(std::forward<U>(v), std::forward<V>(u));
+		return comp(std::forward<V>(v), std::forward<U>(u));
 	}
 
 private:
